@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.npm/
+.pnpm-store/
+
+# Build outputs
+dist/
+.turbo/
+.next/
+.vite/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# Environment
+.env*
+!.env.example
+!**/.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Prisma
+apps/api/prisma/*.db
+apps/api/prisma/*.db-*
+apps/api/prisma/*.db-journal
+apps/api/prisma/*.sqlite
+apps/api/prisma/*.sqlite-*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local agent and generated reports
+.agents/
+.ui-craft/
+reports/
+
+# Raw source media kept outside the application bundle
+/*.mp4
+/vintage_computer_chalk_doodle.png
+SPEC
