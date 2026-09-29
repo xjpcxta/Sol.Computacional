@@ -5,5 +5,6 @@ import { CostProfileController } from './cost-profile.controller';
 @Module({
   providers: [CostProfileService],
   controllers: [CostProfileController],
+  exports: [CostProfileService],
 })
 export class CostProfileModule {}

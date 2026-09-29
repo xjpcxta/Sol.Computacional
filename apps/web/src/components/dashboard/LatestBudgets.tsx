@@ -1,8 +1,10 @@
 import {
   HiOutlineDocumentText,
+  HiOutlineExclamationCircle,
   HiOutlinePaperAirplane,
+  HiOutlineRefresh,
 } from 'react-icons/hi';
-import { Panel } from '../ui';
+import { Button, Panel, Skeleton } from '../ui';
 
 export interface SentBudgetSummary {
   id: string;
@@ -14,6 +16,9 @@ export interface SentBudgetSummary {
 
 interface LatestBudgetsProps {
   budgets: readonly SentBudgetSummary[];
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -39,7 +44,12 @@ function formatSentAt(value: string) {
   return dateFormatter.format(date).replace('.', '');
 }
 
-export function LatestBudgets({ budgets }: LatestBudgetsProps) {
+export function LatestBudgets({
+  budgets,
+  loading = false,
+  error = null,
+  onRetry,
+}: LatestBudgetsProps) {
   const latestBudgets = budgets.slice(0, 3);
 
   return (
@@ -63,7 +73,25 @@ export function LatestBudgets({ budgets }: LatestBudgetsProps) {
           </p>
         </div>
 
-        {latestBudgets.length > 0 ? (
+        {loading ? (
+          <div className="space-y-5 p-5" aria-label="Carregando orçamentos enviados">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_100px] gap-4 border-b border-line-subtle pb-5 last:border-0 last:pb-0">
+                <div><Skeleton width="75%" height="15px" /><Skeleton width="48%" height="11px" className="mt-2" /></div>
+                <Skeleton width="100px" height="20px" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-1 flex-col items-start justify-center px-5 py-8" role="alert">
+            <span className="flex h-11 w-11 items-center justify-center rounded-button border border-error/25 bg-error/[0.055] text-error">
+              <HiOutlineExclamationCircle aria-hidden="true" size={21} />
+            </span>
+            <h3 className="mt-5 text-lg font-medium">Histórico indisponível</h3>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">{error}</p>
+            {onRetry ? <Button onClick={onRetry} icon={<HiOutlineRefresh size={17} />} className="mt-5">Tentar novamente</Button> : null}
+          </div>
+        ) : latestBudgets.length > 0 ? (
           <>
             <div className="flex items-center justify-between gap-4 border-b border-line-subtle px-5 py-4">
               <div className="flex items-center gap-3">

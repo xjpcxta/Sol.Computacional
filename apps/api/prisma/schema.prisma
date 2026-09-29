@@ -14,13 +14,14 @@ model User {
   password    String
   role        String       @default("admin")
   costProfile CostProfile?
+  estimates   Estimate[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
 
 model Template {
   id          String   @id @default(uuid())
-  name        String
+  name        String   @unique
   category    String
   description String
   pfAli       Int      @default(0)
@@ -28,8 +29,27 @@ model Template {
   pfEe        Int      @default(0)
   pfSe        Int      @default(0)
   pfCe        Int      @default(0)
+  components  TemplateComponent[]
+  estimateItems EstimateItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model TemplateComponent {
+  id           String   @id @default(uuid())
+  templateId   String
+  template     Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name         String
+  description  String
+  functionType String
+  complexity   String
+  quantity     Int      @default(1)
+  unitPf       Int
+  totalPf      Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([templateId])
 }
 
 model CostProfile {
@@ -41,4 +61,65 @@ model CostProfile {
   riskMargin Float    @default(15)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model Estimate {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  clientName       String
+  presetKey        String?
+  status           String         @default("draft")
+  scopeBoundary    String
+  calculationNotes String
+  hourlyRate       Float
+  hoursPerPf       Float
+  riskMargin       Float
+  totalPf          Int
+  estimatedHours   Float
+  baseCost         Float
+  riskAmount       Float
+  totalPrice       Float
+  sentAt           DateTime?
+  items            EstimateItem[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([userId, status, sentAt])
+}
+
+model EstimateItem {
+  id          String                  @id @default(uuid())
+  estimateId  String
+  estimate    Estimate                @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  templateId  String?
+  template    Template?               @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  kind        String
+  name        String
+  description String
+  quantity    Int                     @default(1)
+  totalPf     Int
+  components  EstimateItemComponent[]
+  createdAt   DateTime                @default(now())
+
+  @@index([estimateId])
+  @@index([templateId])
+}
+
+model EstimateItemComponent {
+  id             String       @id @default(uuid())
+  estimateItemId String
+  estimateItem   EstimateItem @relation(fields: [estimateItemId], references: [id], onDelete: Cascade)
+  name           String
+  description    String
+  functionType   String
+  complexity     String
+  quantity       Int
+  unitPf         Int
+  totalPf        Int
+  createdAt      DateTime     @default(now())
+
+  @@index([estimateItemId])
 }

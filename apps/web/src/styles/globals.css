@@ -117,7 +117,9 @@
   }
 
   button,
-  input {
+  input,
+  select,
+  textarea {
     font: inherit;
   }
 
@@ -256,6 +258,13 @@
     filter: brightness(0.52) contrast(1.12) saturate(0.32);
     outline: 1px solid rgba(255, 255, 255, 0.1);
     outline-offset: -1px;
+  }
+
+  .estimate-board-grid {
+    background-image:
+      linear-gradient(to right, rgba(238, 240, 233, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(238, 240, 233, 0.025) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
   .login-canvas {
@@ -467,15 +476,61 @@
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
   body {
     background: #fff;
     color: #111;
   }
 
-  nav,
-  aside,
-  button,
+  body {
+    background-image: none;
+  }
+
+  .app-shell > aside,
+  .app-shell-mobile-header,
+  .print-hidden,
+  .skip-link,
   video {
     display: none !important;
+  }
+
+  #main-content {
+    min-height: auto !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  #main-content > div {
+    max-width: none !important;
+  }
+
+  .estimate-report {
+    --text-primary: #111;
+    --text-secondary: #3f463f;
+    --text-tertiary: #687068;
+    --border-subtle: #d9ddd7;
+    --border-default: #bfc6bd;
+    --accent-bg: #557541;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    color: #111;
+  }
+
+  .estimate-report table {
+    min-width: 0 !important;
+  }
+
+  .estimate-report section,
+  .estimate-report table,
+  .estimate-report tr {
+    break-inside: avoid;
   }
 }

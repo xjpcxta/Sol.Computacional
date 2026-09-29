@@ -3,6 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { CatalogPage } from './pages/CatalogPage';
+import { EstimatesPage } from './pages/EstimatesPage';
+import { EstimateReportPage } from './pages/EstimateReportPage';
 import { AppShell } from './components/layout/AppShell';
 
 function App() {
@@ -18,7 +21,9 @@ function App() {
         
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          {/* Outras rotas protegidas iriam aqui */}
+          <Route path="/catalog" element={<CatalogPage />} />
+          <Route path="/estimates" element={<EstimatesPage />} />
+          <Route path="/estimates/:id/report" element={<EstimateReportPage />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

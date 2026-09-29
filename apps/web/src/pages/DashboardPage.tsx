@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CostProfile, Template } from '@pricefunc/shared';
+import type { CostProfile, EstimateSummary, Template } from '@pricefunc/shared';
 import { HiOutlineRefresh } from 'react-icons/hi';
 import {
   LatestBudgets,
@@ -12,24 +12,26 @@ import { Button } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
-const sentBudgets: readonly SentBudgetSummary[] = [];
-
 export function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [costProfile, setCostProfile] = useState<CostProfile | null>(null);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [costProfileError, setCostProfileError] = useState<string | null>(null);
+  const [sentBudgets, setSentBudgets] = useState<SentBudgetSummary[]>([]);
+  const [budgetsError, setBudgetsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setTemplatesError(null);
     setCostProfileError(null);
+    setBudgetsError(null);
 
-    const [templatesResult, costProfileResult] = await Promise.allSettled([
+    const [templatesResult, costProfileResult, budgetsResult] = await Promise.allSettled([
       api.get<Template[]>('/templates'),
       api.get<CostProfile>('/cost-profile'),
+      api.get<EstimateSummary[]>('/estimates?status=sent&limit=3'),
     ]);
 
     if (templatesResult.status === 'fulfilled') {
@@ -42,6 +44,18 @@ export function DashboardPage() {
       setCostProfile(costProfileResult.value.data);
     } else {
       setCostProfileError('O perfil de custo está temporariamente indisponível. Os valores foram ocultados para evitar uma leitura incorreta.');
+    }
+
+    if (budgetsResult.status === 'fulfilled') {
+      setSentBudgets(budgetsResult.value.data.map((estimate) => ({
+        id: estimate.id,
+        title: estimate.title,
+        clientName: estimate.clientName,
+        amount: estimate.totalPrice,
+        sentAt: estimate.sentAt ?? estimate.createdAt,
+      })));
+    } else {
+      setBudgetsError('Não foi possível consultar os últimos envios.');
     }
 
     setLoading(false);
@@ -103,7 +117,12 @@ export function DashboardPage() {
           costProfile={costProfileError ? null : costProfile}
           loading={loading}
         />
-        <LatestBudgets budgets={sentBudgets} />
+        <LatestBudgets
+          budgets={sentBudgets}
+          loading={loading}
+          error={budgetsError}
+          onRetry={() => void fetchData()}
+        />
       </div>
 
       <RecentTemplates

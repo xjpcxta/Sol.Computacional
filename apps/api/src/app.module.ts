@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { TemplatesModule } from './templates/templates.module';
 import { CostProfileModule } from './cost-profile/cost-profile.module';
 import { rootEnvPath, validateRuntimeEnvironment } from './config/environment';
+import { EstimatesModule } from './estimates/estimates.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { rootEnvPath, validateRuntimeEnvironment } from './config/environment';
     UsersModule,
     TemplatesModule,
     CostProfileModule,
+    EstimatesModule,
   ],
 })
 export class AppModule {}

@@ -34,8 +34,8 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
     label: 'Workspace',
     items: [
       { label: 'Visão geral', path: '/dashboard', icon: HiOutlineHome, shortcut: '1', available: true },
-      { label: 'Catálogo', path: '/catalog', icon: HiOutlineTemplate, shortcut: '2', available: false },
-      { label: 'Estimativas', path: '/estimates', icon: HiOutlineCalculator, shortcut: '3', available: false },
+      { label: 'Catálogo', path: '/catalog', icon: HiOutlineTemplate, shortcut: '2', available: true },
+      { label: 'Estimativas', path: '/estimates', icon: HiOutlineCalculator, shortcut: '3', available: true },
     ],
   },
   {
@@ -323,7 +323,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas text-text-primary">
+    <div className="app-shell min-h-dvh bg-canvas text-text-primary">
       <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
 
       <aside
@@ -335,7 +335,7 @@ export function AppShell() {
         />
       </aside>
 
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-line-subtle bg-sticky px-4 backdrop-blur-md md:hidden">
+      <header className="app-shell-mobile-header sticky top-0 z-20 flex h-16 items-center justify-between border-b border-line-subtle bg-sticky px-4 backdrop-blur-md md:hidden">
         <BrandLockup compact />
         <button
           ref={mobileTriggerRef}
