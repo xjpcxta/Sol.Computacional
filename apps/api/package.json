@@ -10,7 +10,7 @@
     "test": "vitest run",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/main.js",
     "prisma:generate": "ts-node --transpile-only scripts/prisma.ts generate",
     "prisma:migrate": "ts-node --transpile-only scripts/prisma.ts migrate dev",
     "prisma:migrate:deploy": "ts-node --transpile-only scripts/prisma.ts migrate deploy",
