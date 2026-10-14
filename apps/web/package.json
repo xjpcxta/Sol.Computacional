@@ -12,6 +12,7 @@
     "lint": "npm run typecheck"
   },
   "dependencies": {
+    "@pricefunc/shared": "0.1.0",
     "axios": "^1.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

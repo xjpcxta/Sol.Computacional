@@ -264,11 +264,7 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { username: adminConfig.username },
-    update: {
-      email: adminConfig.email,
-      password: adminPassword,
-      role: 'admin',
-    },
+    update: {},
     create: {
       username: adminConfig.username,
       email: adminConfig.email,
@@ -300,39 +296,22 @@ async function main() {
       };
     });
 
-    await prisma.$transaction(async (transaction) => {
-      const savedTemplate = await transaction.template.upsert({
-        where: { name: template.name },
-        update: {
-          category: template.category,
-          description: template.description,
-          pfAli: totals.pfAli,
-          pfAie: totals.pfAie,
-          pfEe: totals.pfEe,
-          pfSe: totals.pfSe,
-          pfCe: totals.pfCe,
+    await prisma.template.upsert({
+      where: { name: template.name },
+      update: {},
+      create: {
+        name: template.name,
+        category: template.category,
+        description: template.description,
+        pfAli: totals.pfAli,
+        pfAie: totals.pfAie,
+        pfEe: totals.pfEe,
+        pfSe: totals.pfSe,
+        pfCe: totals.pfCe,
+        components: {
+          create: componentData,
         },
-        create: {
-          name: template.name,
-          category: template.category,
-          description: template.description,
-          pfAli: totals.pfAli,
-          pfAie: totals.pfAie,
-          pfEe: totals.pfEe,
-          pfSe: totals.pfSe,
-          pfCe: totals.pfCe,
-        },
-      });
-
-      await transaction.templateComponent.deleteMany({
-        where: { templateId: savedTemplate.id },
-      });
-      await transaction.templateComponent.createMany({
-        data: componentData.map((component) => ({
-          ...component,
-          templateId: savedTemplate.id,
-        })),
-      });
+      },
     });
   }
 }
