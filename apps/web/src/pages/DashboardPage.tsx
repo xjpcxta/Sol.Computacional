@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CostProfile, EstimateSummary, Template } from '@pricefunc/shared';
+import type { EffectiveCostProfile, EstimateSummary, Template } from '@pricefunc/shared';
 import { HiOutlineRefresh } from 'react-icons/hi';
 import {
   LatestBudgets,
@@ -15,7 +15,7 @@ import { useAuthStore } from '../store/authStore';
 export function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [costProfile, setCostProfile] = useState<CostProfile | null>(null);
+  const [costProfile, setCostProfile] = useState<EffectiveCostProfile | null>(null);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
   const [costProfileError, setCostProfileError] = useState<string | null>(null);
   const [sentBudgets, setSentBudgets] = useState<SentBudgetSummary[]>([]);
@@ -30,7 +30,7 @@ export function DashboardPage() {
 
     const [templatesResult, costProfileResult, budgetsResult] = await Promise.allSettled([
       api.get<Template[]>('/templates'),
-      api.get<CostProfile>('/cost-profile'),
+      api.get<EffectiveCostProfile>('/cost-profile'),
       api.get<EstimateSummary[]>('/estimates?status=sent&limit=3'),
     ]);
 

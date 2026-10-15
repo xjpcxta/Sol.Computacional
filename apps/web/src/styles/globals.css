@@ -509,7 +509,8 @@
     max-width: none !important;
   }
 
-  .estimate-report {
+  .estimate-report,
+  .cost-profile-report {
     --text-primary: #111;
     --text-secondary: #3f463f;
     --text-tertiary: #687068;
@@ -524,13 +525,19 @@
     color: #111;
   }
 
-  .estimate-report table {
+  .estimate-report table,
+  .cost-profile-report table {
     min-width: 0 !important;
   }
 
-  .estimate-report section,
   .estimate-report table,
-  .estimate-report tr {
+  .estimate-report tr,
+  .estimate-report .break-inside-avoid,
+  .cost-profile-report section {
     break-inside: avoid;
+  }
+
+  .estimate-report thead {
+    display: table-header-group;
   }
 }

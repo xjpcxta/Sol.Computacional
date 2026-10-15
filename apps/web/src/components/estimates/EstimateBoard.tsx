@@ -1,6 +1,7 @@
 import {
   EstimateItemKind,
-  type CostProfile,
+  TemplateCalculationBasis,
+  type CostProfileValues,
   type FunctionPointWeightMatrix,
 } from '@pricefunc/shared';
 import {
@@ -14,15 +15,17 @@ import {
   calculateBoardTotals,
   getBoardComponentPf,
   getBoardItemPf,
+  getBoardItemServiceHours,
   type BoardItem,
 } from '../../lib/estimateMath';
 
 interface EstimateBoardProps {
   items: readonly BoardItem[];
   weights: FunctionPointWeightMatrix;
-  costProfile: CostProfile;
+  costProfile: CostProfileValues;
   onQuantityChange: (key: string, quantity: number) => void;
   onRemove: (key: string) => void;
+  onClear: () => void;
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -39,6 +42,7 @@ export function EstimateBoard({
   costProfile,
   onQuantityChange,
   onRemove,
+  onClear,
 }: EstimateBoardProps) {
   const totals = calculateBoardTotals(items, weights, costProfile);
 
@@ -52,9 +56,21 @@ export function EstimateBoard({
               Escopo em composição
             </h2>
           </div>
-          <span className="flex h-10 min-w-10 items-center justify-center rounded-button border border-accent/25 bg-accent-soft px-3 font-mono text-sm text-accent">
-            {items.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {items.length > 0 ? (
+              <button
+                type="button"
+                onClick={onClear}
+                className="inline-flex min-h-10 items-center gap-2 rounded-button border border-line-subtle px-3 text-xs text-text-secondary hover:border-error/35 hover:text-error"
+              >
+                <HiOutlineTrash aria-hidden="true" size={15} />
+                Limpar lousa
+              </button>
+            ) : null}
+            <span className="flex h-10 min-w-10 items-center justify-center rounded-button border border-accent/25 bg-accent-soft px-3 font-mono text-sm text-accent">
+              {items.length}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -90,23 +106,34 @@ export function EstimateBoard({
                       <p className="mt-1 max-w-[58ch] text-xs leading-5 text-text-secondary">{item.description}</p>
                     </div>
                     <p className="data-value font-mono text-lg text-accent">
-                      {getBoardItemPf(item, weights)} PF
+                      {item.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS
+                        ? `${numberFormatter.format(getBoardItemServiceHours(item))} h`
+                        : `${getBoardItemPf(item, weights)} PF`}
                     </p>
                   </div>
 
                   <details className="group/details mt-4">
                     <summary className="cursor-pointer list-none font-mono text-[10px] text-text-tertiary hover:text-text-secondary [&::-webkit-details-marker]:hidden">
-                      {item.components.length} {item.components.length === 1 ? 'componente contado' : 'componentes contados'} · ver memória
+                      {item.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS
+                        ? `${item.serviceActivities.length} atividades estimadas`
+                        : `${item.components.length} ${item.components.length === 1 ? 'componente contado' : 'componentes contados'}`} · ver memória
                     </summary>
                     <ul className="mt-3 space-y-2 border-l border-line-subtle pl-3">
-                      {item.components.map((component) => (
+                      {item.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS
+                        ? item.serviceActivities.map((activity) => (
+                          <li key={activity.key} className="text-xs leading-5 text-text-secondary">
+                            <span className="text-text-primary">{activity.name}</span>
+                            {' · '}{numberFormatter.format(activity.estimatedHours * item.quantity)} h
+                          </li>
+                        ))
+                        : item.components.map((component) => (
                         <li key={component.key} className="text-xs leading-5 text-text-secondary">
                           <span className="text-text-primary">{component.name}</span>
                           {' · '}{component.functionType}/{complexityLabels[component.complexity]}
                           {' · '}{component.quantity * item.quantity} × {component.unitPf ?? weights[component.functionType][component.complexity]} PF
                           {' = '}{getBoardComponentPf(component, item.quantity, weights)} PF
                         </li>
-                      ))}
+                        ))}
                     </ul>
                   </details>
 
@@ -160,6 +187,12 @@ export function EstimateBoard({
             <dt className="text-text-secondary">Esforço estimado</dt>
             <dd className="data-value font-mono text-text-primary">{numberFormatter.format(totals.estimatedHours)} h</dd>
           </div>
+          {totals.serviceHours > 0 ? (
+            <div className="flex justify-between gap-4 text-xs">
+              <dt className="text-text-tertiary">PF / serviços</dt>
+              <dd className="font-mono text-text-secondary">{numberFormatter.format(totals.functionPointHours)} h / {numberFormatter.format(totals.serviceHours)} h</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4">
             <dt className="text-text-secondary">Custo-base</dt>
             <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.baseCost)}</dd>
@@ -167,6 +200,14 @@ export function EstimateBoard({
           <div className="flex justify-between gap-4">
             <dt className="text-text-secondary">Margem de risco ({numberFormatter.format(costProfile.riskMargin)}%)</dt>
             <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.riskAmount)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-text-secondary">Markup de lucro ({numberFormatter.format(costProfile.profitMarkup)}%)</dt>
+            <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.profitAmount)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-text-secondary">Impostos ({numberFormatter.format(costProfile.taxRate)}%)</dt>
+            <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.taxAmount)}</dd>
           </div>
         </dl>
         <div className="mt-5 flex items-end justify-between gap-5 border-t border-accent/20 pt-5">

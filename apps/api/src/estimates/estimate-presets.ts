@@ -49,6 +49,18 @@ export const ESTIMATE_PRESETS = [
       'Upload de Arquivos',
     ],
   },
+  {
+    key: 'landing-page',
+    name: 'Landing page',
+    description: 'Presença digital objetiva para apresentar a oferta e captar contatos.',
+    templateNames: ['Landing Page'],
+  },
+  {
+    key: 'risk-assessment',
+    name: 'Avaliação de riscos',
+    description: 'Revisão independente do software, com diagnóstico e relatório, sem obrigação de implementação.',
+    templateNames: ['Avaliação de Riscos'],
+  },
 ] as const;
 
 export const ESTIMATE_PRESET_KEYS = ESTIMATE_PRESETS.map((preset) => preset.key);

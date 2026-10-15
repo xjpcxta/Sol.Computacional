@@ -2,7 +2,8 @@ import {
   Complexity,
   EstimateItemKind,
   FunctionType,
-  type CostProfile,
+  TemplateCalculationBasis,
+  type CostProfileValues,
   type FunctionPointWeightMatrix,
   type Template,
 } from '@pricefunc/shared';
@@ -24,14 +25,25 @@ export interface BoardItem {
   name: string;
   description: string;
   quantity: number;
+  calculationBasis: TemplateCalculationBasis;
   components: BoardComponent[];
+  serviceActivities: Array<{
+    key: string;
+    name: string;
+    description: string;
+    estimatedHours: number;
+  }>;
 }
 
 export interface BoardTotals {
   totalPf: number;
+  functionPointHours: number;
+  serviceHours: number;
   estimatedHours: number;
   baseCost: number;
   riskAmount: number;
+  profitAmount: number;
+  taxAmount: number;
   totalPrice: number;
 }
 
@@ -43,6 +55,7 @@ export function templateToBoardItem(template: Template): BoardItem {
     name: template.name,
     description: template.description,
     quantity: 1,
+    calculationBasis: template.calculationBasis,
     components: template.components.map((component) => ({
       key: component.id,
       name: component.name,
@@ -52,15 +65,20 @@ export function templateToBoardItem(template: Template): BoardItem {
       quantity: component.quantity,
       unitPf: component.unitPf,
     })),
+    serviceActivities: template.serviceActivities.map((activity) => ({
+      key: activity.id,
+      name: activity.name,
+      description: activity.description,
+      estimatedHours: activity.estimatedHours,
+    })),
   };
 }
 
 export function applyPresetToBoard(
-  currentItems: readonly BoardItem[],
+  _currentItems: readonly BoardItem[],
   templateIds: readonly string[],
   templates: readonly Template[],
 ): BoardItem[] {
-  const customItems = currentItems.filter((item) => item.kind === EstimateItemKind.CUSTOM);
   const templatesById = new Map(templates.map((template) => [template.id, template]));
   const missingIds = templateIds.filter((id) => !templatesById.has(id));
   if (missingIds.length > 0) {
@@ -68,7 +86,7 @@ export function applyPresetToBoard(
   }
   const archetypes = templateIds.map((id) => templateToBoardItem(templatesById.get(id)!));
 
-  return [...archetypes, ...customItems];
+  return archetypes;
 }
 
 export function getBoardComponentPf(
@@ -91,6 +109,13 @@ export function getBoardItemPf(
   );
 }
 
+export function getBoardItemServiceHours(item: BoardItem): number {
+  return item.serviceActivities.reduce(
+    (sum, activity) => sum + activity.estimatedHours * item.quantity,
+    0,
+  );
+}
+
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -98,19 +123,38 @@ function roundCurrency(value: number): number {
 export function calculateBoardTotals(
   items: readonly BoardItem[],
   weights: FunctionPointWeightMatrix,
-  profile: Pick<CostProfile, 'hourlyRate' | 'hoursPerPf' | 'riskMargin'>,
+  profile: CostProfileValues,
 ): BoardTotals {
   const totalPf = items.reduce((sum, item) => sum + getBoardItemPf(item, weights), 0);
-  const estimatedHours = totalPf * profile.hoursPerPf;
+  const serviceHours = items.reduce((sum, item) => sum + getBoardItemServiceHours(item), 0);
+
+  return calculateCommercialTotals(totalPf, serviceHours, profile);
+}
+
+export function calculateCommercialTotals(
+  totalPf: number,
+  serviceHours: number,
+  profile: CostProfileValues,
+): BoardTotals {
+  const functionPointHours = totalPf * profile.hoursPerPf;
+  const estimatedHours = functionPointHours + serviceHours;
   const baseCost = roundCurrency(estimatedHours * profile.hourlyRate);
   const riskAmount = roundCurrency(baseCost * profile.riskMargin / 100);
+  const profitBase = baseCost + riskAmount;
+  const profitAmount = roundCurrency(profitBase * profile.profitMarkup / 100);
+  const taxBase = profitBase + profitAmount;
+  const taxAmount = roundCurrency(taxBase * profile.taxRate / 100);
 
   return {
     totalPf,
+    functionPointHours,
+    serviceHours,
     estimatedHours,
     baseCost,
     riskAmount,
-    totalPrice: roundCurrency(baseCost + riskAmount),
+    profitAmount,
+    taxAmount,
+    totalPrice: roundCurrency(taxBase + taxAmount),
   };
 }
 

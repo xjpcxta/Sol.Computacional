@@ -1,4 +1,4 @@
-import type { CostProfile } from '@pricefunc/shared';
+import { CostProfileSource, type EffectiveCostProfile } from '@pricefunc/shared';
 import {
   HiOutlineClock,
   HiOutlineCurrencyDollar,
@@ -9,7 +9,7 @@ import { Panel, Skeleton } from '../ui';
 
 interface MetricOverviewProps {
   templateCount?: number;
-  costProfile: CostProfile | null;
+  costProfile: EffectiveCostProfile | null;
   loading: boolean;
 }
 
@@ -71,9 +71,16 @@ export function MetricOverview({ templateCount, costProfile, loading }: MetricOv
             O modelo em uma leitura.
           </h2>
         </div>
-        <p className="max-w-[42ch] text-sm leading-6 text-text-secondary sm:text-right">
-          Catálogo disponível e parâmetros que orientam o cálculo.
-        </p>
+        <div className="sm:text-right">
+          <p className="max-w-[42ch] text-sm leading-6 text-text-secondary">
+            Catálogo disponível e parâmetros que orientam o cálculo.
+          </p>
+          {!loading && costProfile ? (
+            <span className={`mt-2 inline-flex rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.07em] ${costProfile.source === CostProfileSource.GLOBAL ? 'border-accent/30 bg-accent-soft text-accent' : 'border-line-subtle text-text-tertiary'}`}>
+              {costProfile.source === CostProfileSource.GLOBAL ? 'Perfil global ativo' : 'Perfil individual ativo'}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid min-h-[336px] flex-1 overflow-hidden rounded-panel border border-line-subtle bg-white/[0.018] lg:grid-cols-[1.12fr_0.88fr]">
@@ -92,7 +99,7 @@ export function MetricOverview({ templateCount, costProfile, loading }: MetricOv
                 </p>
               )}
               <p className="mt-4 max-w-[38ch] text-sm leading-6 text-text-secondary">
-                Blocos de funcionalidade prontos para compor novos escopos.
+                Blocos funcionais e serviços consultivos prontos para compor novos escopos.
               </p>
             </div>
 
@@ -126,7 +133,9 @@ export function MetricOverview({ templateCount, costProfile, loading }: MetricOv
             icon={HiOutlineShieldCheck}
             label="Margem de risco"
             value={costProfile ? `${numberFormatter.format(costProfile.riskMargin)}%` : undefined}
-            context="Margem aplicada sobre a estimativa-base."
+            context={costProfile
+              ? `Lucro ${numberFormatter.format(costProfile.profitMarkup)}% · impostos ${numberFormatter.format(costProfile.taxRate)}%.`
+              : 'Risco, lucro e impostos do perfil vigente.'}
             loading={loading}
           />
         </div>

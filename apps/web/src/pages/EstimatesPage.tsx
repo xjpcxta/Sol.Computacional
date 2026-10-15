@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   EstimateItemKind,
   EstimateStatus,
-  type CostProfile,
+  TemplateCalculationBasis,
   type CreateEstimateRequest,
+  type EffectiveCostProfile,
   type Estimate,
   type EstimateConfiguration,
   type EstimatePresetKey,
@@ -24,6 +32,8 @@ import {
 } from 'react-icons/hi';
 import { CustomFunctionForm } from '../components/estimates/CustomFunctionForm';
 import { EstimateBoard } from '../components/estimates/EstimateBoard';
+import { PresetRail } from '../components/estimates/PresetRail';
+import { presetChangeNeedsConfirmation, togglePreset } from '../components/estimates/presetSelection';
 import { Button, CategoryBadge, Panel, Skeleton } from '../components/ui';
 import { api } from '../lib/api';
 import {
@@ -40,6 +50,10 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 });
 
+type BoardConfirmation =
+  | { type: 'preset'; key: EstimatePresetKey }
+  | { type: 'clear' };
+
 function readApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
@@ -52,7 +66,7 @@ function readApiError(error: unknown): string {
 export function EstimatesPage() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [costProfile, setCostProfile] = useState<CostProfile | null>(null);
+  const [costProfile, setCostProfile] = useState<EffectiveCostProfile | null>(null);
   const [configuration, setConfiguration] = useState<EstimateConfiguration | null>(null);
   const [recentEstimates, setRecentEstimates] = useState<EstimateSummary[]>([]);
   const [recentError, setRecentError] = useState<string | null>(null);
@@ -60,6 +74,10 @@ export function EstimatesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [items, setItems] = useState<BoardItem[]>([]);
   const [activePreset, setActivePreset] = useState<EstimatePresetKey | null>(null);
+  const [confirmation, setConfirmation] = useState<BoardConfirmation | null>(null);
+  const [presetStatus, setPresetStatus] = useState('');
+  const confirmationTriggerRef = useRef<HTMLElement | null>(null);
+  const confirmationDialogRef = useRef<HTMLDivElement>(null);
   const [title, setTitle] = useState('');
   const [clientName, setClientName] = useState('');
   const [scopeBoundary, setScopeBoundary] = useState('');
@@ -75,7 +93,7 @@ export function EstimatesPage() {
     setRecentError(null);
     const [templatesResult, profileResult, configurationResult, recentResult] = await Promise.allSettled([
       api.get<Template[]>('/templates'),
-      api.get<CostProfile>('/cost-profile'),
+      api.get<EffectiveCostProfile>('/cost-profile'),
       api.get<EstimateConfiguration>('/estimates/configuration'),
       api.get<EstimateSummary[]>('/estimates?limit=6'),
     ]);
@@ -104,29 +122,99 @@ export function EstimatesPage() {
     void loadData();
   }, [loadData]);
 
+  const closeConfirmation = useCallback(() => {
+    setConfirmation(null);
+    window.requestAnimationFrame(() => confirmationTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!confirmation) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeConfirmation();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [closeConfirmation, confirmation]);
+
+  const trapConfirmationFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(
+      confirmationDialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    );
+    const first = controls.at(0);
+    const last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+
   const selectedTemplateIds = useMemo(() => new Set(
     items.map((item) => item.templateId).filter((id): id is string => Boolean(id)),
   ), [items]);
 
-  const applyPreset = (key: EstimatePresetKey) => {
+  const commitPreset = (key: EstimatePresetKey) => {
     if (!configuration) return;
     const preset = configuration.presets.find((candidate) => candidate.key === key);
     if (!preset) return;
 
-    if (items.length > 0 && !window.confirm(
-      'Aplicar esta configuração substituirá os arquétipos atuais. As funcionalidades personalizadas serão preservadas. Continuar?',
-    )) {
-      return;
-    }
-
     try {
-      const nextItems = applyPresetToBoard(items, preset.templateIds, templates);
+      const nextPreset = togglePreset(activePreset, key);
+      if (!nextPreset) {
+        setItems([]);
+        setActivePreset(null);
+        setPresetStatus('Ponto de partida e lousa removidos.');
+        return;
+      }
+      const nextItems = applyPresetToBoard([], preset.templateIds, templates);
       setItems(nextItems);
-      setActivePreset(key);
+      setActivePreset(nextPreset);
+      setPresetStatus('Ponto de partida atualizado; a lousa anterior foi substituída.');
       setSaveError(null);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Esta configuração inicial está incompleta.');
     }
+  };
+
+  const requestPreset = (key: EstimatePresetKey) => {
+    if (presetChangeNeedsConfirmation(items.length)) {
+      confirmationTriggerRef.current = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      setConfirmation({ type: 'preset', key });
+      return;
+    }
+    commitPreset(key);
+  };
+
+  const requestBoardClear = () => {
+    confirmationTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setConfirmation({ type: 'clear' });
+  };
+
+  const confirmBoardChange = () => {
+    if (!confirmation) return;
+    if (confirmation.type === 'preset') {
+      commitPreset(confirmation.key);
+    } else {
+      setItems([]);
+      setActivePreset(null);
+      setPresetStatus('Lousa e ponto de partida removidos.');
+      setSaveError(null);
+    }
+    closeConfirmation();
   };
 
   const addTemplate = (template: Template) => {
@@ -255,29 +343,33 @@ export function EstimatesPage() {
             Elas aceleram a conversa; nenhum preset substitui a validação do escopo.
           </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {configuration.presets.map((preset, index) => {
-            const selected = activePreset === preset.key;
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => applyPreset(preset.key)}
-                className={`min-h-[156px] rounded-panel border p-5 text-left transition-[border-color,background-color,transform] duration-base hover:-translate-y-0.5 ${selected ? 'border-accent/50 bg-accent-soft' : 'border-line-subtle bg-white/[0.018] hover:border-line-strong hover:bg-white/[0.03]'}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <span className={`font-mono text-[10px] ${selected ? 'text-accent' : 'text-text-tertiary'}`}>{String(index + 1).padStart(2, '0')}</span>
-                  {selected ? <HiOutlineCheck aria-hidden="true" className="text-accent" size={18} /> : null}
-                </div>
-                <h3 className="mt-6 text-base font-medium text-text-primary">{preset.name}</h3>
-                <p className="mt-2 text-xs leading-5 text-text-secondary">{preset.description}</p>
-                <p className="mt-3 font-mono text-[10px] text-text-tertiary">{preset.templateIds.length} arquétipos</p>
-              </button>
-            );
-          })}
-        </div>
+        <PresetRail presets={configuration.presets} activePreset={activePreset} onSelect={requestPreset} />
+        <p className="sr-only" aria-live="polite">{presetStatus}</p>
       </section>
+
+      {confirmation ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeConfirmation(); }}>
+          <div ref={confirmationDialogRef} role="dialog" aria-modal="true" aria-labelledby="preset-confirm-title" aria-describedby="preset-confirm-description" onKeyDown={trapConfirmationFocus} className="w-full max-w-md rounded-panel border border-line bg-overlay p-6 shadow-overlay">
+            <p className="eyebrow mb-2">Confirmar alteração</p>
+            <h2 id="preset-confirm-title" className="text-xl font-medium">
+              {confirmation.type === 'clear' || activePreset === confirmation.key
+                ? 'Limpar a lousa atual?'
+                : 'Substituir a lousa atual?'}
+            </h2>
+            <p id="preset-confirm-description" className="mt-3 text-sm leading-6 text-text-secondary">
+              {confirmation.type === 'clear' || activePreset === confirmation.key
+                ? 'O ponto de partida será desmarcado e todos os itens da lousa serão removidos.'
+                : 'Todos os itens atuais, inclusive funcionalidades personalizadas, serão substituídos pelo novo ponto de partida.'}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button onClick={closeConfirmation}>Cancelar</Button>
+              <Button variant="primary" autoFocus onClick={confirmBoardChange}>
+                {confirmation.type === 'clear' || activePreset === confirmation.key ? 'Limpar lousa' : 'Substituir lousa'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section aria-labelledby="project-data-heading" className="grid gap-5 lg:grid-cols-2">
         <Panel className="p-5 sm:p-6">
@@ -354,7 +446,11 @@ export function EstimatesPage() {
                           <span className="block truncate text-sm font-medium text-text-primary">{template.name}</span>
                           <span className="mt-1 block"><CategoryBadge category={template.category} className="text-xs" /></span>
                         </span>
-                        <span className="data-value shrink-0 font-mono text-xs text-text-secondary">{template.totalPf} PF</span>
+                        <span className="data-value shrink-0 font-mono text-xs text-text-secondary">
+                          {template.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS
+                            ? `${template.serviceHours.toLocaleString('pt-BR')} h`
+                            : `${template.totalPf.toLocaleString('pt-BR')} PF`}
+                        </span>
                       </button>
                     </li>
                   );
@@ -384,6 +480,7 @@ export function EstimatesPage() {
               setItems((current) => current.filter((item) => item.key !== key));
               setActivePreset(null);
             }}
+            onClear={requestBoardClear}
           />
 
           {saveError ? (

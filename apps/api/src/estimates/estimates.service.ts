@@ -63,14 +63,17 @@ export class EstimatesService {
     ) {
       throw new BadRequestException('Título, cliente, fronteira e premissas precisam de conteúdo válido.');
     }
-    const costProfile = await this.costProfileService.findByUserId(userId);
+    const costProfile = await this.costProfileService.findEffectiveByUserId(userId);
     const templateIds = [...new Set(data.items
       .filter((item) => item.kind === 'archetype')
       .map((item) => item.templateId)
       .filter((id): id is string => Boolean(id)))];
     const templates = await this.prisma.template.findMany({
       where: { id: { in: templateIds } },
-      include: { components: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        components: { orderBy: { createdAt: 'asc' } },
+        serviceActivities: { orderBy: { createdAt: 'asc' } },
+      },
     });
     const templatesById = new Map(templates.map((template) => [template.id, template]));
 
@@ -80,11 +83,15 @@ export class EstimatesService {
 
     const items = data.items.map((item) => this.snapshotItem(item, templatesById));
     const totalPf = items.reduce((sum, item) => sum + item.totalPf, 0);
+    const serviceHours = items.reduce((sum, item) => sum + item.serviceHours, 0);
     const totals = calculateCommercialTotals(
       totalPf,
       costProfile.hourlyRate,
       costProfile.hoursPerPf,
       costProfile.riskMargin,
+      serviceHours,
+      costProfile.profitMarkup,
+      costProfile.taxRate,
     );
 
     return this.prisma.estimate.create({
@@ -99,6 +106,9 @@ export class EstimatesService {
         hourlyRate: costProfile.hourlyRate,
         hoursPerPf: costProfile.hoursPerPf,
         riskMargin: costProfile.riskMargin,
+        profitMarkup: costProfile.profitMarkup,
+        taxRate: costProfile.taxRate,
+        pricingSource: costProfile.source,
         ...totals,
         sentAt: data.status === 'sent' ? new Date() : null,
         items: {
@@ -107,9 +117,12 @@ export class EstimatesService {
             kind: item.kind,
             name: item.name,
             description: item.description,
+            calculationBasis: item.calculationBasis,
             quantity: item.quantity,
             totalPf: item.totalPf,
+            serviceHours: item.serviceHours,
             components: { create: item.components },
+            serviceActivities: { create: item.serviceActivities },
           })),
         },
       },
@@ -181,6 +194,7 @@ export class EstimatesService {
       orderBy: { createdAt: 'asc' as const },
       include: {
         components: { orderBy: { createdAt: 'asc' as const } },
+        serviceActivities: { orderBy: { createdAt: 'asc' as const } },
       },
     },
   };
@@ -191,6 +205,7 @@ export class EstimatesService {
       id: string;
       name: string;
       description: string;
+      calculationBasis: string;
       components: Array<{
         name: string;
         description: string;
@@ -199,12 +214,42 @@ export class EstimatesService {
         quantity: number;
         unitPf: number;
       }>;
+      serviceActivities: Array<{
+        name: string;
+        description: string;
+        estimatedHours: number;
+      }>;
     }>,
   ) {
     if (item.kind === 'archetype') {
       const template = item.templateId ? templatesById.get(item.templateId) : undefined;
       if (!template) {
         throw new BadRequestException('O arquétipo selecionado é inválido.');
+      }
+
+      if (template.calculationBasis === 'service-hours') {
+        if (template.serviceActivities.length === 0) {
+          throw new BadRequestException(
+            `O serviço “${template.name}” precisa ter atividades estimadas antes de ser utilizado.`,
+          );
+        }
+        const serviceActivities = template.serviceActivities.map((activity) => ({
+          name: activity.name,
+          description: activity.description,
+          estimatedHours: activity.estimatedHours * item.quantity,
+        }));
+        return {
+          templateId: template.id,
+          kind: item.kind,
+          name: template.name,
+          description: template.description,
+          calculationBasis: 'service-hours',
+          quantity: item.quantity,
+          totalPf: 0,
+          serviceHours: serviceActivities.reduce((sum, activity) => sum + activity.estimatedHours, 0),
+          components: [],
+          serviceActivities,
+        };
       }
 
       if (template.components.length === 0 || template.components.some((component) => component.quantity < 1)) {
@@ -235,9 +280,12 @@ export class EstimatesService {
         kind: item.kind,
         name: template.name,
         description: template.description,
+        calculationBasis: 'function-points',
         quantity: item.quantity,
         totalPf: components.reduce((sum, component) => sum + component.totalPf, 0),
+        serviceHours: 0,
         components,
+        serviceActivities: [],
       };
     }
 
@@ -275,9 +323,12 @@ export class EstimatesService {
       kind: item.kind,
       name: item.name.trim(),
       description: item.description.trim(),
+      calculationBasis: 'function-points',
       quantity: item.quantity,
       totalPf: components.reduce((sum, component) => sum + component.totalPf, 0),
+      serviceHours: 0,
       components,
+      serviceActivities: [],
     };
   }
 }

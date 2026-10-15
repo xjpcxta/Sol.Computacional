@@ -58,12 +58,12 @@ export function CatalogPage() {
     <div className="space-y-10 pb-12">
       <header className="grid gap-6 border-b border-line-subtle pb-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <p className="eyebrow mb-3">Catálogo / base funcional</p>
+          <p className="eyebrow mb-3">Catálogo / base de estimativa</p>
           <h1 className="max-w-[16ch] font-display text-[clamp(2.6rem,5vw,4.5rem)] font-light leading-[0.98] tracking-[-0.05em]">
             Arquétipos que explicam a conta.
           </h1>
           <p className="mt-5 max-w-[66ch] text-base leading-7 text-text-secondary">
-            Cada bloco registra as funções reconhecidas pelo usuário, sua complexidade e o peso aplicado à estimativa.
+            Cada bloco registra sua memória detalhada, por Pontos de Função ou por atividades consultivas estimadas em horas.
           </p>
         </div>
         <Button
@@ -131,7 +131,7 @@ export function CatalogPage() {
             <HiOutlineTemplate aria-hidden="true" className="text-text-tertiary" size={28} />
             <h2 className="mt-4 text-xl font-medium">O catálogo está vazio.</h2>
             <p className="mt-2 max-w-[50ch] text-sm leading-6 text-text-secondary">
-              Cadastre o primeiro arquétipo com sua memória de cálculo detalhada.
+              Cadastre o primeiro arquétipo com sua memória de cálculo funcional ou consultiva.
             </p>
             <Button variant="primary" onClick={() => setFormOpen(true)} icon={<HiOutlinePlus size={18} />} className="mt-6">
               Criar primeiro arquétipo

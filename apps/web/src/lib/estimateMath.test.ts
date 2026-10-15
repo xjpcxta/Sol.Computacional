@@ -3,6 +3,7 @@ import {
   Complexity,
   EstimateItemKind,
   FunctionType,
+  TemplateCalculationBasis,
   type FunctionPointWeightMatrix,
   type Template,
 } from '@pricefunc/shared';
@@ -26,6 +27,8 @@ const template = {
   id: 'template-1',
   name: 'Cadastro',
   description: 'Cadastro de exemplo',
+  calculationBasis: TemplateCalculationBasis.FUNCTION_POINTS,
+  serviceActivities: [],
   components: [{
     id: 'component-1',
     templateId: 'template-1',
@@ -39,7 +42,7 @@ const template = {
     createdAt: '',
     updatedAt: '',
   }],
-} as Template;
+} as unknown as Template;
 
 describe('estimate board math', () => {
   it('converts a catalog template into a selectable board item', () => {
@@ -51,19 +54,20 @@ describe('estimate board math', () => {
     });
   });
 
-  it('applies a preset while preserving unmapped custom functionality', () => {
+  it('replaces the complete board when applying a preset', () => {
     const custom: BoardItem = {
       key: 'custom-1',
       kind: EstimateItemKind.CUSTOM,
       name: 'Regra especial',
       description: 'Regra exclusiva do cliente',
       quantity: 1,
+      calculationBasis: TemplateCalculationBasis.FUNCTION_POINTS,
       components: [],
+      serviceActivities: [],
     };
 
     expect(applyPresetToBoard([custom], ['template-1'], [template])).toEqual([
       expect.objectContaining({ templateId: 'template-1' }),
-      custom,
     ]);
   });
 
@@ -86,12 +90,47 @@ describe('estimate board math', () => {
       hourlyRate: 150,
       hoursPerPf: 10,
       riskMargin: 15,
+      profitMarkup: 0,
+      taxRate: 0,
     })).toEqual({
       totalPf: 10,
+      functionPointHours: 100,
+      serviceHours: 0,
       estimatedHours: 100,
       baseCost: 15_000,
       riskAmount: 2_250,
+      profitAmount: 0,
+      taxAmount: 0,
       totalPrice: 17_250,
+    });
+  });
+
+  it('includes hourly services and commercial additions', () => {
+    const serviceTemplate = {
+      ...template,
+      id: 'service-1',
+      calculationBasis: TemplateCalculationBasis.SERVICE_HOURS,
+      components: [],
+      serviceActivities: [{
+        id: 'activity-1',
+        templateId: 'service-1',
+        name: 'Diagnóstico',
+        description: 'Diagnóstico técnico detalhado do produto avaliado.',
+        estimatedHours: 20,
+        createdAt: '',
+        updatedAt: '',
+      }],
+    } as Template;
+    expect(calculateBoardTotals([templateToBoardItem(serviceTemplate)], weights, {
+      hourlyRate: 100,
+      hoursPerPf: 10,
+      riskMargin: 10,
+      profitMarkup: 20,
+      taxRate: 10,
+    })).toMatchObject({
+      totalPf: 0,
+      serviceHours: 20,
+      totalPrice: 2904,
     });
   });
 });

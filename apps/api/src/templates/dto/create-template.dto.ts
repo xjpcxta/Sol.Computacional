@@ -5,11 +5,14 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNumber,
+  IsOptional,
   IsString,
   Length,
   Max,
   Min,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { COMPLEXITIES, FUNCTION_TYPES } from '../../estimates/function-point-calculator';
 
@@ -21,6 +24,7 @@ const TEMPLATE_CATEGORIES = [
   'security',
   'reporting',
 ] as const;
+const CALCULATION_BASES = ['function-points', 'service-hours'] as const;
 
 export class CreateTemplateComponentDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
@@ -59,10 +63,40 @@ export class CreateTemplateDto {
   @Length(20, 400)
   description!: string;
 
+  @IsIn(CALCULATION_BASES)
+  @IsOptional()
+  calculationBasis?: (typeof CALCULATION_BASES)[number];
+
+  @ValidateIf((value: CreateTemplateDto) => value.calculationBasis !== 'service-hours')
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(30)
   @ValidateNested({ each: true })
   @Type(() => CreateTemplateComponentDto)
-  components!: CreateTemplateComponentDto[];
+  components?: CreateTemplateComponentDto[];
+
+  @ValidateIf((value: CreateTemplateDto) => value.calculationBasis === 'service-hours')
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => CreateTemplateServiceActivityDto)
+  serviceActivities?: CreateTemplateServiceActivityDto[];
+}
+
+export class CreateTemplateServiceActivityDto {
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @Length(3, 100)
+  name!: string;
+
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @Length(30, 600)
+  description!: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.25)
+  @Max(10000)
+  estimatedHours!: number;
 }

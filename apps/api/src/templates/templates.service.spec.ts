@@ -30,6 +30,7 @@ describe('TemplatesService', () => {
         templateId: 'template-1',
         ...component,
       })),
+      serviceActivities: [],
     }));
 
     const result = await service.create({
@@ -68,6 +69,47 @@ describe('TemplatesService', () => {
       expect.objectContaining({ unitPf: 10, totalPf: 10 }),
       expect.objectContaining({ unitPf: 3, totalPf: 6 }),
     ]));
+  });
+
+  it('creates a service archetype and derives its total estimated hours', async () => {
+    const { prisma, service } = createService();
+    prisma.template.create.mockImplementation(async ({ data }: { data: any }) => ({
+      id: 'service-template',
+      ...data,
+      components: [],
+      serviceActivities: data.serviceActivities.create.map((activity: object, index: number) => ({
+        id: `activity-${index}`,
+        templateId: 'service-template',
+        ...activity,
+      })),
+    }));
+
+    const result = await service.create({
+      name: 'Avaliação de riscos',
+      category: 'security',
+      description: 'Revisão independente de riscos técnicos com diagnóstico e recomendações.',
+      calculationBasis: 'service-hours',
+      serviceActivities: [
+        {
+          name: 'Coleta de evidências',
+          description: 'Reúne documentação, acessos e evidências necessárias para orientar a avaliação.',
+          estimatedHours: 12,
+        },
+        {
+          name: 'Relatório priorizado',
+          description: 'Documenta achados, severidade, impacto e recomendações de tratamento priorizadas.',
+          estimatedHours: 20,
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      calculationBasis: 'service-hours',
+      totalPf: 0,
+      serviceHours: 32,
+      components: [],
+    });
+    expect(result.serviceActivities).toHaveLength(2);
   });
 
   it('translates a unique-name database violation into a conflict', async () => {
@@ -122,6 +164,8 @@ describe('TemplatesService', () => {
       pfEe: 999,
       pfSe: 999,
       pfCe: 999,
+      calculationBasis: 'function-points',
+      serviceActivities: [],
       components: [{
         id: 'component-drifted',
         templateId: 'template-drifted',

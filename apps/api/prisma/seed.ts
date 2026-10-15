@@ -29,6 +29,12 @@ interface SeedTemplate {
   components: SeedComponent[];
 }
 
+interface SeedServiceActivity {
+  name: string;
+  description: string;
+  estimatedHours: number;
+}
+
 const templates: SeedTemplate[] = [
   {
     name: 'Landing Page',
@@ -258,6 +264,34 @@ const templates: SeedTemplate[] = [
   },
 ];
 
+const riskAssessmentActivities: SeedServiceActivity[] = [
+  {
+    name: 'Levantamento e descoberta',
+    description: 'Reúne arquitetura, dependências, fluxos críticos e contexto operacional com as partes responsáveis.',
+    estimatedHours: 8,
+  },
+  {
+    name: 'Revisão de arquitetura e segurança',
+    description: 'Avalia superfícies de ataque, autenticação, autorização, exposição de dados e decisões arquiteturais.',
+    estimatedHours: 16,
+  },
+  {
+    name: 'Revisão de dados e dependências',
+    description: 'Verifica persistência, integrações, bibliotecas e riscos de continuidade ou obsolescência técnica.',
+    estimatedHours: 12,
+  },
+  {
+    name: 'Classificação dos achados',
+    description: 'Consolida evidências e classifica impacto, probabilidade, prioridade e recomendação de tratamento.',
+    estimatedHours: 8,
+  },
+  {
+    name: 'Relatório executivo e técnico',
+    description: 'Produz o diagnóstico final com resumo executivo, evidências técnicas e plano recomendado de mitigação.',
+    estimatedHours: 12,
+  },
+];
+
 async function main() {
   const adminConfig = getAdminSeedConfig(process.env);
   const adminPassword = await bcrypt.hash(adminConfig.password, PASSWORD_HASH_ROUNDS);
@@ -285,6 +319,22 @@ async function main() {
       hourlyRate: 150,
       hoursPerPf: 10,
       riskMargin: 15,
+      profitMarkup: 0,
+      taxRate: 0,
+    },
+  });
+
+  await prisma.globalCostProfile.upsert({
+    where: { id: 'global' },
+    update: {},
+    create: {
+      id: 'global',
+      isActive: false,
+      hourlyRate: 150,
+      hoursPerPf: 10,
+      riskMargin: 15,
+      profitMarkup: 0,
+      taxRate: 0,
     },
   });
 
@@ -307,6 +357,7 @@ async function main() {
         name: template.name,
         category: template.category,
         description: template.description,
+        calculationBasis: 'function-points',
         pfAli: totals.pfAli,
         pfAie: totals.pfAie,
         pfEe: totals.pfEe,
@@ -316,6 +367,30 @@ async function main() {
           create: componentData,
         },
       },
+    });
+  }
+
+  const riskAssessment = await prisma.template.upsert({
+    where: { name: 'Avaliação de Riscos' },
+    update: { calculationBasis: 'service-hours' },
+    create: {
+      name: 'Avaliação de Riscos',
+      category: 'security',
+      description: 'Revisão técnica independente do software com diagnóstico, classificação de riscos e recomendações, sem obrigação de implementação.',
+      calculationBasis: 'service-hours',
+      serviceActivities: { create: riskAssessmentActivities },
+    },
+  });
+
+  const riskActivityCount = await prisma.templateServiceActivity.count({
+    where: { templateId: riskAssessment.id },
+  });
+  if (riskActivityCount === 0) {
+    await prisma.templateServiceActivity.createMany({
+      data: riskAssessmentActivities.map((activity) => ({
+        templateId: riskAssessment.id,
+        ...activity,
+      })),
     });
   }
 }

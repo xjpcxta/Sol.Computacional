@@ -3,6 +3,7 @@ import {
   Complexity,
   EstimateItemKind,
   FunctionType,
+  TemplateCalculationBasis,
   type FunctionPointWeightMatrix,
 } from '@pricefunc/shared';
 import { HiOutlinePlus, HiOutlinePuzzle } from 'react-icons/hi';
@@ -43,6 +44,7 @@ export function CustomFunctionForm({ weights, onAdd }: CustomFunctionFormProps) 
       name: name.trim(),
       description: description.trim(),
       quantity: 1,
+      calculationBasis: TemplateCalculationBasis.FUNCTION_POINTS,
       components: [{
         key: `${key}:component`,
         name: name.trim(),
@@ -52,6 +54,7 @@ export function CustomFunctionForm({ weights, onAdd }: CustomFunctionFormProps) 
         quantity,
         unitPf,
       }],
+      serviceActivities: [],
     });
 
     setName('');

@@ -34,9 +34,13 @@ export interface FunctionPointTotals {
 
 export interface CommercialTotals {
   totalPf: number;
+  functionPointHours: number;
+  serviceHours: number;
   estimatedHours: number;
   baseCost: number;
   riskAmount: number;
+  profitAmount: number;
+  taxAmount: number;
   totalPrice: number;
 }
 
@@ -88,16 +92,28 @@ export function calculateCommercialTotals(
   hourlyRate: number,
   hoursPerPf: number,
   riskMargin: number,
+  serviceHours = 0,
+  profitMarkup = 0,
+  taxRate = 0,
 ): CommercialTotals {
-  const estimatedHours = totalPf * hoursPerPf;
+  const functionPointHours = totalPf * hoursPerPf;
+  const estimatedHours = functionPointHours + serviceHours;
   const baseCost = roundCurrency(estimatedHours * hourlyRate);
   const riskAmount = roundCurrency(baseCost * (riskMargin / 100));
+  const profitBase = baseCost + riskAmount;
+  const profitAmount = roundCurrency(profitBase * (profitMarkup / 100));
+  const taxBase = profitBase + profitAmount;
+  const taxAmount = roundCurrency(taxBase * (taxRate / 100));
 
   return {
     totalPf,
+    functionPointHours,
+    serviceHours,
     estimatedHours,
     baseCost,
     riskAmount,
-    totalPrice: roundCurrency(baseCost + riskAmount),
+    profitAmount,
+    taxAmount,
+    totalPrice: roundCurrency(taxBase + taxAmount),
   };
 }

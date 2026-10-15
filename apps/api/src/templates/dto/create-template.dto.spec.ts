@@ -29,4 +29,32 @@ describe('CreateTemplateDto', () => {
       'components',
     ]));
   });
+
+  it('accepts detailed service activities without requiring function-point components', () => {
+    const dto = plainToInstance(CreateTemplateDto, {
+      name: 'Avaliação técnica',
+      category: 'security',
+      description: 'Avaliação consultiva independente com relatório técnico priorizado.',
+      calculationBasis: 'service-hours',
+      serviceActivities: [{
+        name: 'Diagnóstico documentado',
+        description: 'Analisa evidências técnicas e documenta os achados com impacto e prioridade.',
+        estimatedHours: 12,
+      }],
+    });
+
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it('requires service activities when the hourly-service basis is selected', () => {
+    const dto = plainToInstance(CreateTemplateDto, {
+      name: 'Avaliação técnica',
+      category: 'security',
+      description: 'Avaliação consultiva independente com relatório técnico priorizado.',
+      calculationBasis: 'service-hours',
+      serviceActivities: [],
+    });
+
+    expect(validateSync(dto).map((error) => error.property)).toContain('serviceActivities');
+  });
 });

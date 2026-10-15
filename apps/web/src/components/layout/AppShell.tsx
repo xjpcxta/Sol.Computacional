@@ -41,7 +41,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: 'Gestão',
     items: [
-      { label: 'Perfil de custo', path: '/settings', icon: HiOutlineCog, shortcut: '4', available: false },
+      { label: 'Perfil de custo', path: '/settings', icon: HiOutlineCog, shortcut: '4', available: true },
     ],
   },
 ];

@@ -6,6 +6,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { EstimatesPage } from './pages/EstimatesPage';
 import { EstimateReportPage } from './pages/EstimateReportPage';
+import { CostProfilePage } from './pages/CostProfilePage';
+import { CostProfileReportPage } from './pages/CostProfileReportPage';
 import { AppShell } from './components/layout/AppShell';
 
 function App() {
@@ -24,6 +26,8 @@ function App() {
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/estimates" element={<EstimatesPage />} />
           <Route path="/estimates/:id/report" element={<EstimateReportPage />} />
+          <Route path="/settings" element={<CostProfilePage />} />
+          <Route path="/settings/report" element={<CostProfileReportPage />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

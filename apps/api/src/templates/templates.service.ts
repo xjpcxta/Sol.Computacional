@@ -13,7 +13,10 @@ export class TemplatesService {
 
   async findAll() {
     const templates = await this.prisma.template.findMany({
-      include: { components: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        components: { orderBy: { createdAt: 'asc' } },
+        serviceActivities: { orderBy: { createdAt: 'asc' } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return templates.map((template) => this.toResponse(template));
@@ -22,7 +25,10 @@ export class TemplatesService {
   async findOne(id: string) {
     const template = await this.prisma.template.findUnique({
       where: { id },
-      include: { components: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        components: { orderBy: { createdAt: 'asc' } },
+        serviceActivities: { orderBy: { createdAt: 'asc' } },
+      },
     });
     if (!template) {
       throw new NotFoundException(`Template with ID ${id} not found`);
@@ -36,7 +42,8 @@ export class TemplatesService {
     if (name.length < 3 || description.length < 20) {
       throw new BadRequestException('Nome e descrição do arquétipo não podem conter apenas espaços.');
     }
-    const components = data.components.map((component) => {
+    const calculationBasis = data.calculationBasis ?? 'function-points';
+    const components = (data.components ?? []).map((component) => {
       const componentName = component.name.trim();
       const componentDescription = component.description.trim();
       if (componentName.length < 3 || componentDescription.length < 30) {
@@ -54,6 +61,32 @@ export class TemplatesService {
         totalPf: unitPf * component.quantity,
       };
     });
+    const serviceActivities = (data.serviceActivities ?? []).map((activity) => {
+      const activityName = activity.name.trim();
+      const activityDescription = activity.description.trim();
+      if (
+        activityName.length < 3
+        || activityDescription.length < 30
+        || !Number.isFinite(activity.estimatedHours)
+        || activity.estimatedHours < 0.25
+        || activity.estimatedHours > 10_000
+      ) {
+        throw new BadRequestException('Cada atividade precisa de nome, descrição detalhada e horas válidas.');
+      }
+
+      return {
+        name: activityName,
+        description: activityDescription,
+        estimatedHours: activity.estimatedHours,
+      };
+    });
+
+    if (calculationBasis === 'function-points' && components.length === 0) {
+      throw new BadRequestException('Um arquétipo funcional precisa de pelo menos um componente contado.');
+    }
+    if (calculationBasis === 'service-hours' && serviceActivities.length === 0) {
+      throw new BadRequestException('Um serviço precisa de pelo menos uma atividade estimada.');
+    }
     const totals = calculateFunctionPointTotals(components);
 
     try {
@@ -62,14 +95,20 @@ export class TemplatesService {
           name,
           category: data.category,
           description,
+          calculationBasis,
           pfAli: totals.pfAli,
           pfAie: totals.pfAie,
           pfEe: totals.pfEe,
           pfSe: totals.pfSe,
           pfCe: totals.pfCe,
-          components: { create: components },
+          ...(calculationBasis === 'function-points'
+            ? { components: { create: components } }
+            : { serviceActivities: { create: serviceActivities } }),
         },
-        include: { components: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          components: { orderBy: { createdAt: 'asc' } },
+          serviceActivities: { orderBy: { createdAt: 'asc' } },
+        },
       });
 
       return this.toResponse(template);
@@ -82,11 +121,13 @@ export class TemplatesService {
   }
 
   private toResponse<T extends {
+    calculationBasis?: string;
     components: Array<{
       functionType: string;
       complexity: string;
       quantity: number;
     }>;
+    serviceActivities?: Array<{ estimatedHours: number }>;
   }>(template: T) {
     const components = template.components.map((component) => {
       const unitPf = getFunctionPointWeight(
@@ -103,7 +144,13 @@ export class TemplatesService {
 
     return {
       ...template,
+      calculationBasis: template.calculationBasis ?? 'function-points',
+      serviceActivities: template.serviceActivities ?? [],
       components,
+      serviceHours: (template.serviceActivities ?? []).reduce(
+        (sum, activity) => sum + activity.estimatedHours,
+        0,
+      ),
       ...totals,
     };
   }

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { EstimateStatus, type Estimate } from '@pricefunc/shared';
+import {
+  CostProfileSource,
+  EstimateStatus,
+  TemplateCalculationBasis,
+  type Estimate,
+} from '@pricefunc/shared';
 import {
   HiOutlineArrowLeft,
   HiOutlineExclamationCircle,
@@ -138,8 +143,7 @@ export function EstimateReportPage() {
               <span className={`inline-flex rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${estimate.status === EstimateStatus.SENT ? 'border-success/30 bg-success/[0.06] text-success' : 'border-warning/30 bg-warning/[0.06] text-warning'}`}>
                 {estimate.status === EstimateStatus.SENT ? 'Enviada' : 'Rascunho'}
               </span>
-              <p className="mt-4 font-mono text-xs text-text-tertiary">#{estimate.id.slice(0, 8).toUpperCase()}</p>
-              <p className="mt-1 text-xs text-text-tertiary">Criada em {dateFormatter.format(new Date(estimate.createdAt))}</p>
+              <p className="mt-4 text-xs text-text-tertiary">Criada em {dateFormatter.format(new Date(estimate.createdAt))}</p>
               {estimate.sentAt ? <p className="mt-1 text-xs text-text-tertiary">Enviada em {dateFormatter.format(new Date(estimate.sentAt))}</p> : null}
             </div>
           </div>
@@ -160,9 +164,12 @@ export function EstimateReportPage() {
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
             <div>
               <p className="eyebrow mb-2">Escopo contado</p>
-              <h2 id="report-scope-heading" className="text-2xl font-normal tracking-[-0.035em]">Itens e componentes</h2>
+              <h2 id="report-scope-heading" className="text-2xl font-normal tracking-[-0.035em]">Itens, componentes e serviços</h2>
             </div>
-            <p className="font-mono text-xs text-text-tertiary">{estimate.items.length} itens · {estimate.totalPf} PF</p>
+            <p className="font-mono text-xs text-text-tertiary">
+              {estimate.items.length} itens · {numberFormatter.format(estimate.totalPf)} PF
+              {estimate.serviceHours > 0 ? ` · ${numberFormatter.format(estimate.serviceHours)} h de serviços` : ''}
+            </p>
           </div>
 
           <div className="divide-y divide-line">
@@ -180,9 +187,38 @@ export function EstimateReportPage() {
                     <p className="mt-2 max-w-[70ch] text-sm leading-6 text-text-secondary">{item.description}</p>
                     {item.quantity > 1 ? <p className="mt-2 font-mono text-[10px] text-text-tertiary">Quantidade do bloco: {item.quantity}</p> : null}
                   </div>
-                  <p className="data-value font-mono text-xl text-accent">{item.totalPf} PF</p>
+                  <p className="data-value font-mono text-xl text-accent">
+                    {item.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS
+                      ? `${numberFormatter.format(item.serviceHours)} h`
+                      : `${numberFormatter.format(item.totalPf)} PF`}
+                  </p>
                 </div>
 
+                {item.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS ? (
+                  <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[640px] border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="border-y border-line-subtle text-text-tertiary">
+                          <th className="py-3 pr-4 font-medium">Atividade consultiva</th>
+                          <th className="py-3 pl-4 text-right font-medium">Horas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {item.serviceActivities.map((activity) => (
+                          <tr key={activity.id} className="border-b border-line-subtle align-top last:border-0">
+                            <td className="py-4 pr-4">
+                              <p className="font-medium text-text-primary">{activity.name}</p>
+                              <p className="mt-1 max-w-[70ch] leading-5 text-text-secondary">{activity.description}</p>
+                            </td>
+                            <td className="data-value py-4 pl-4 text-right font-mono text-text-primary">
+                              {numberFormatter.format(activity.estimatedHours)} h
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
                 <div className="mt-5 overflow-x-auto">
                   <table className="w-full min-w-[720px] border-collapse text-left text-xs">
                     <thead>
@@ -212,6 +248,7 @@ export function EstimateReportPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </section>
             ))}
           </div>
@@ -221,15 +258,23 @@ export function EstimateReportPage() {
           <div className="border-b border-line px-6 py-8 sm:px-10 lg:border-b-0 lg:border-r">
             <p className="eyebrow mb-3">Fórmula aplicada</p>
             <div className="space-y-3 font-mono text-xs leading-6 text-text-secondary">
-              <p>{estimate.totalPf} PF × {numberFormatter.format(estimate.hoursPerPf)} h/PF = {numberFormatter.format(estimate.estimatedHours)} horas</p>
+              <p>{numberFormatter.format(estimate.totalPf)} PF × {numberFormatter.format(estimate.hoursPerPf)} h/PF = {numberFormatter.format(estimate.functionPointHours)} horas funcionais</p>
+              <p>{numberFormatter.format(estimate.functionPointHours)} h funcionais + {numberFormatter.format(estimate.serviceHours)} h de serviços = {numberFormatter.format(estimate.estimatedHours)} horas totais</p>
               <p>{numberFormatter.format(estimate.estimatedHours)} h × {currencyFormatter.format(estimate.hourlyRate)}/h = {currencyFormatter.format(estimate.baseCost)}</p>
-              <p>{currencyFormatter.format(estimate.baseCost)} × {numberFormatter.format(estimate.riskMargin)}% = {currencyFormatter.format(estimate.riskAmount)} de margem</p>
+              <p>{currencyFormatter.format(estimate.baseCost)} × {numberFormatter.format(estimate.riskMargin)}% = {currencyFormatter.format(estimate.riskAmount)} de risco</p>
+              <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)}) × {numberFormatter.format(estimate.profitMarkup)}% = {currencyFormatter.format(estimate.profitAmount)} de lucro</p>
+              <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)} + {currencyFormatter.format(estimate.profitAmount)}) × {numberFormatter.format(estimate.taxRate)}% = {currencyFormatter.format(estimate.taxAmount)} de impostos</p>
             </div>
+            <p className="mt-5 text-xs text-text-tertiary">
+              Perfil {estimate.pricingSource === CostProfileSource.GLOBAL ? 'global' : 'individual'} fotografado no salvamento.
+            </p>
           </div>
           <div className="px-6 py-8 sm:px-10">
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-5"><dt className="text-text-secondary">Custo-base</dt><dd className="font-mono">{currencyFormatter.format(estimate.baseCost)}</dd></div>
-              <div className="flex justify-between gap-5"><dt className="text-text-secondary">Margem de risco</dt><dd className="font-mono">{currencyFormatter.format(estimate.riskAmount)}</dd></div>
+              <div className="flex justify-between gap-5"><dt className="text-text-secondary">Margem de risco ({numberFormatter.format(estimate.riskMargin)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.riskAmount)}</dd></div>
+              <div className="flex justify-between gap-5"><dt className="text-text-secondary">Markup de lucro ({numberFormatter.format(estimate.profitMarkup)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.profitAmount)}</dd></div>
+              <div className="flex justify-between gap-5"><dt className="text-text-secondary">Impostos ({numberFormatter.format(estimate.taxRate)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.taxAmount)}</dd></div>
             </dl>
             <div className="mt-6 border-t border-accent/25 pt-5">
               <p className="eyebrow mb-2">Investimento estimado</p>
@@ -240,9 +285,16 @@ export function EstimateReportPage() {
 
         <footer className="px-6 py-8 sm:px-10">
           <p className="eyebrow mb-3">Qualificação metodológica</p>
-          <p className="text-xs leading-6 text-text-secondary">
-            Esta é uma estimativa alinhada às cinco categorias clássicas da Análise de Pontos de Função do IFPUG e aos pesos por complexidade registrados na memória acima. Ela não substitui uma contagem certificada. A identificação da fronteira, dos processos elementares, dos ALR/FTR, DER/DET e RLR/RET deve ser validada conforme o Counting Practices Manual aplicável e as exigências contratuais do cliente.
-          </p>
+          {estimate.totalPf > 0 ? (
+            <p className="text-xs leading-6 text-text-secondary">
+              A parcela funcional desta estimativa está alinhada às cinco categorias clássicas da Análise de Pontos de Função do IFPUG e aos pesos por complexidade registrados na memória acima. Ela não substitui uma contagem certificada. A identificação da fronteira, dos processos elementares, dos ALR/FTR, DER/DET e RLR/RET deve ser validada conforme o Counting Practices Manual aplicável e as exigências contratuais do cliente.
+            </p>
+          ) : null}
+          {estimate.serviceHours > 0 ? (
+            <p className={`${estimate.totalPf > 0 ? 'mt-3' : ''} text-xs leading-6 text-text-secondary`}>
+              As atividades consultivas são estimadas diretamente em horas e não representam Pontos de Função. Escopo, evidências, entrevistas, profundidade da análise e entregáveis devem ser confirmados com o cliente antes da execução.
+            </p>
+          ) : null}
         </footer>
       </article>
     </div>

@@ -45,10 +45,28 @@ describe('function point calculator', () => {
   it('calculates hours, base cost, risk and final price', () => {
     expect(calculateCommercialTotals(39, 150, 10, 15)).toEqual({
       totalPf: 39,
+      functionPointHours: 390,
+      serviceHours: 0,
       estimatedHours: 390,
       baseCost: 58_500,
       riskAmount: 8_775,
+      profitAmount: 0,
+      taxAmount: 0,
       totalPrice: 67_275,
+    });
+  });
+
+  it('applies service hours, risk, profit markup and tax in order', () => {
+    expect(calculateCommercialTotals(100, 100, 10, 10, 20, 20, 10)).toEqual({
+      totalPf: 100,
+      functionPointHours: 1000,
+      serviceHours: 20,
+      estimatedHours: 1020,
+      baseCost: 102_000,
+      riskAmount: 10_200,
+      profitAmount: 22_440,
+      taxAmount: 13_464,
+      totalPrice: 148_104,
     });
   });
 });

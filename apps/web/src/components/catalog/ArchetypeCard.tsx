@@ -1,4 +1,4 @@
-import type { Template } from '@pricefunc/shared';
+import { TemplateCalculationBasis, type Template } from '@pricefunc/shared';
 import { HiOutlineChevronDown, HiOutlineCube } from 'react-icons/hi';
 import { complexityLabels, functionTypeLabels } from '../../lib/functionPointLabels';
 import { CategoryBadge, Panel } from '../ui';
@@ -8,6 +8,7 @@ interface ArchetypeCardProps {
 }
 
 export function ArchetypeCard({ template }: ArchetypeCardProps) {
+  const isService = template.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS;
   return (
     <Panel className="group flex min-h-[300px] flex-col overflow-hidden">
       <div className="flex flex-1 flex-col p-5 sm:p-6">
@@ -16,8 +17,8 @@ export function ArchetypeCard({ template }: ArchetypeCardProps) {
             <HiOutlineCube aria-hidden="true" size={19} />
           </span>
           <div className="text-right">
-            <p className="data-value font-mono text-3xl font-light text-accent">{template.totalPf}</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">PF não ajustados</p>
+            <p className="data-value font-mono text-3xl font-light text-accent">{isService ? template.serviceHours : template.totalPf}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">{isService ? 'horas estimadas' : 'PF não ajustados'}</p>
           </div>
         </div>
 
@@ -31,7 +32,7 @@ export function ArchetypeCard({ template }: ArchetypeCardProps) {
 
         <div className="mt-auto flex items-center justify-between border-t border-line-subtle pt-5">
           <span className="font-mono text-[11px] text-text-tertiary">
-            {template.components.length} {template.components.length === 1 ? 'componente' : 'componentes'}
+            {isService ? template.serviceActivities.length : template.components.length} {isService ? 'atividades' : 'componentes'}
           </span>
           <span className="font-mono text-[11px] text-text-tertiary">
             Atualizado {new Intl.DateTimeFormat('pt-BR').format(new Date(template.updatedAt))}
@@ -45,7 +46,17 @@ export function ArchetypeCard({ template }: ArchetypeCardProps) {
           <HiOutlineChevronDown aria-hidden="true" className="transition-transform duration-base group-open:rotate-180" size={18} />
         </summary>
         <ol className="divide-y divide-line-subtle border-t border-line-subtle">
-          {template.components.map((component) => (
+          {isService ? template.serviceActivities.map((activity) => (
+            <li key={activity.id} className="px-5 py-4 sm:px-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-text-primary">{activity.name}</p>
+                  <p className="mt-1 text-xs leading-5 text-text-secondary">{activity.description}</p>
+                </div>
+                <span className="data-value shrink-0 font-mono text-xs text-accent">{activity.estimatedHours} h</span>
+              </div>
+            </li>
+          )) : template.components.map((component) => (
             <li key={component.id} className="px-5 py-4 sm:px-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
