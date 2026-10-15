@@ -10,13 +10,13 @@
   ],
   "scripts": {
     "dev": "npm run setup && turbo run dev",
-    "setup": "npm run prisma:generate --workspace=@pricefunc/api && npm run prisma:migrate:deploy --workspace=@pricefunc/api && npm run prisma:seed --workspace=@pricefunc/api",
+    "setup": "npm run build --workspace=@pricefunc/shared && npm run prisma:generate --workspace=@pricefunc/api && npm run prisma:migrate:deploy --workspace=@pricefunc/api && npm run prisma:seed --workspace=@pricefunc/api",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "dev:api": "npm run setup && npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
-    "build:api": "npm run build --workspace=@pricefunc/api",
+    "build:api": "npm run build --workspace=@pricefunc/shared && npm run build --workspace=@pricefunc/api",
     "release:api": "npm run prisma:migrate:deploy --workspace=@pricefunc/api && npm run prisma:seed --workspace=@pricefunc/api",
     "start:api": "npm run start:prod --workspace=@pricefunc/api"
   },
