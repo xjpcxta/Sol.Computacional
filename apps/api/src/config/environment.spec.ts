@@ -2,6 +2,7 @@ import { dirname, resolve } from 'path';
 import { describe, expect, it } from 'vitest';
 import {
   getAdminSeedConfig,
+  getAiAssistantConfig,
   getCorsOrigins,
   rootEnvPath,
   validateRuntimeEnvironment,
@@ -103,5 +104,44 @@ describe('environment configuration', () => {
 
   it('requires configured CORS origins in production', () => {
     expect(() => getCorsOrigins({ NODE_ENV: 'production' })).toThrow('CORS_ORIGINS');
+  });
+
+  it('keeps the assistant disabled without provider secrets', () => {
+    expect(getAiAssistantConfig({})).toEqual({
+      enabled: false,
+      timeoutMs: 30_000,
+      maxOutputTokens: 1_200,
+      maxHistoryMessages: 10,
+    });
+  });
+
+  it('requires provider settings only when the assistant is enabled', () => {
+    expect(() => getAiAssistantConfig({ AI_ASSISTANT_ENABLED: 'true' }))
+      .toThrow('AI_API_BASE_URL');
+  });
+
+  it('normalizes an OpenAI-compatible base URL', () => {
+    expect(getAiAssistantConfig({
+      AI_ASSISTANT_ENABLED: 'true',
+      AI_API_BASE_URL: 'https://provider.example/openai/v1/',
+      AI_API_KEY: 'server-only-key',
+      AI_MODEL: 'fast-model',
+    })).toMatchObject({
+      enabled: true,
+      apiUrl: 'https://provider.example/openai/v1/chat/completions',
+      model: 'fast-model',
+    });
+  });
+
+  it('rejects invalid flags and insecure production provider URLs', () => {
+    expect(() => getAiAssistantConfig({ AI_ASSISTANT_ENABLED: 'yes' }))
+      .toThrow('AI_ASSISTANT_ENABLED');
+    expect(() => getAiAssistantConfig({
+      NODE_ENV: 'production',
+      AI_ASSISTANT_ENABLED: 'true',
+      AI_API_BASE_URL: 'http://provider.example/v1',
+      AI_API_KEY: 'server-only-key',
+      AI_MODEL: 'fast-model',
+    })).toThrow('HTTPS');
   });
 });

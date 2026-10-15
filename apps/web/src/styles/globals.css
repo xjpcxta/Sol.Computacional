@@ -267,6 +267,21 @@
     background-size: 24px 24px;
   }
 
+  .assistant-drawer {
+    animation: assistant-drawer-enter var(--motion-medium) var(--ease-out) both;
+  }
+
+  @keyframes assistant-drawer-enter {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
   .login-canvas {
     background-color: #2d2d2d;
     background-image:

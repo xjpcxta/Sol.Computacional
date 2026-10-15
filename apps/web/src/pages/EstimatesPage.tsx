@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   EstimateItemKind,
+  EstimateAssistantIntent,
   EstimateStatus,
   TemplateCalculationBasis,
   type CreateEstimateRequest,
@@ -29,13 +30,18 @@ import {
   HiOutlinePlus,
   HiOutlineRefresh,
   HiOutlineSave,
+  HiOutlineSparkles,
 } from 'react-icons/hi';
+import { EstimateAssistantDrawer } from '../components/estimates/EstimateAssistantDrawer';
 import { CustomFunctionForm } from '../components/estimates/CustomFunctionForm';
 import { EstimateBoard } from '../components/estimates/EstimateBoard';
 import { PresetRail } from '../components/estimates/PresetRail';
 import { presetChangeNeedsConfirmation, togglePreset } from '../components/estimates/presetSelection';
 import { Button, CategoryBadge, Panel, Skeleton } from '../components/ui';
 import { api } from '../lib/api';
+import { useEstimateAssistant, type EstimateAssistantAction } from '../hooks/useEstimateAssistant';
+import { buildEstimateAssistantContext } from '../lib/estimateAssistantContext';
+import { getAssistantEligibility } from '../lib/estimateAssistantEligibility';
 import {
   applyPresetToBoard,
   templateToBoardItem,
@@ -52,7 +58,8 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 type BoardConfirmation =
   | { type: 'preset'; key: EstimatePresetKey }
-  | { type: 'clear' };
+  | { type: 'clear' }
+  | { type: 'premises'; content: string };
 
 function readApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -78,6 +85,10 @@ export function EstimatesPage() {
   const [presetStatus, setPresetStatus] = useState('');
   const confirmationTriggerRef = useRef<HTMLElement | null>(null);
   const confirmationDialogRef = useRef<HTMLDivElement>(null);
+  const assistantTriggerRef = useRef<HTMLElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const scopeInputRef = useRef<HTMLTextAreaElement>(null);
+  const calculationNotesRef = useRef<HTMLTextAreaElement>(null);
   const [title, setTitle] = useState('');
   const [clientName, setClientName] = useState('');
   const [scopeBoundary, setScopeBoundary] = useState('');
@@ -86,6 +97,27 @@ export function EstimatesPage() {
   );
   const [saving, setSaving] = useState<EstimateStatus | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const assistantContext = useMemo(() => buildEstimateAssistantContext({
+    title,
+    scopeBoundary,
+    calculationNotes,
+    items,
+    templates,
+  }), [calculationNotes, items, scopeBoundary, templates, title]);
+  const assistantEligibility = useMemo(() => getAssistantEligibility({
+    title,
+    scopeBoundary,
+    boardItemCount: items.length,
+  }), [items.length, scopeBoundary, title]);
+  const assistant = useEstimateAssistant(assistantContext);
+  const assistantDisabledReason = assistant.configurationLoading
+    ? 'Verificando disponibilidade do assistente…'
+    : !assistant.enabled
+      ? 'Configure o assistente de IA no backend para usar esta análise.'
+      : assistantEligibility.assistantDisabledReason;
+  const boardAnalysisDisabledReason = assistantDisabledReason
+    ?? assistantEligibility.boardDisabledReason;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -208,6 +240,8 @@ export function EstimatesPage() {
     if (!confirmation) return;
     if (confirmation.type === 'preset') {
       commitPreset(confirmation.key);
+    } else if (confirmation.type === 'premises') {
+      setCalculationNotes(confirmation.content);
     } else {
       setItems([]);
       setActivePreset(null);
@@ -215,6 +249,51 @@ export function EstimatesPage() {
       setSaveError(null);
     }
     closeConfirmation();
+  };
+
+  const rememberAssistantTrigger = () => {
+    assistantTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  };
+
+  const openAssistant = () => {
+    rememberAssistantTrigger();
+    assistant.open();
+  };
+
+  const closeAssistant = () => {
+    assistant.close();
+    window.requestAnimationFrame(() => assistantTriggerRef.current?.focus());
+  };
+
+  const startAssistantAction = (action: EstimateAssistantAction) => {
+    rememberAssistantTrigger();
+    assistant.open();
+    if (!assistant.enabled || !assistantEligibility.canUseAssistant) return;
+    void assistant.sendAction(action);
+  };
+
+  const focusAssistantRequirement = () => {
+    assistant.close();
+    window.requestAnimationFrame(() => {
+      if (assistantEligibility.missingField === 'title') {
+        titleInputRef.current?.focus();
+      } else {
+        scopeInputRef.current?.focus();
+      }
+    });
+  };
+
+  const requestPremisesApply = (content: string) => {
+    assistant.close();
+    if (!calculationNotes.trim()) {
+      setCalculationNotes(content);
+      window.requestAnimationFrame(() => calculationNotesRef.current?.focus());
+      return;
+    }
+    confirmationTriggerRef.current = calculationNotesRef.current;
+    setConfirmation({ type: 'premises', content });
   };
 
   const addTemplate = (template: Template) => {
@@ -323,14 +402,23 @@ export function EstimatesPage() {
 
   return (
     <div className="space-y-10 pb-12">
-      <header className="border-b border-line-subtle pb-8">
-        <p className="eyebrow mb-3">Estimativas / conversa com o cliente</p>
-        <h1 className="max-w-[17ch] font-display text-[clamp(2.6rem,5vw,4.5rem)] font-light leading-[0.98] tracking-[-0.05em]">
-          Monte o escopo na mesma mesa.
-        </h1>
-        <p className="mt-5 max-w-[68ch] text-base leading-7 text-text-secondary">
-          Comece por uma configuração conhecida, ajuste os blocos e registre o que só existe nesta implementação.
-        </p>
+      <header className="flex flex-col gap-6 border-b border-line-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="eyebrow mb-3">Estimativas / conversa com o cliente</p>
+          <h1 className="max-w-[17ch] font-display text-[clamp(2.6rem,5vw,4.5rem)] font-light leading-[0.98] tracking-[-0.05em]">
+            Monte o escopo na mesma mesa.
+          </h1>
+          <p className="mt-5 max-w-[68ch] text-base leading-7 text-text-secondary">
+            Comece por uma configuração conhecida, ajuste os blocos e registre o que só existe nesta implementação.
+          </p>
+        </div>
+        <Button
+          className="print-hidden shrink-0"
+          icon={<HiOutlineSparkles size={17} />}
+          onClick={openAssistant}
+        >
+          Abrir assistente
+        </Button>
       </header>
 
       <section aria-labelledby="presets-heading">
@@ -352,19 +440,27 @@ export function EstimatesPage() {
           <div ref={confirmationDialogRef} role="dialog" aria-modal="true" aria-labelledby="preset-confirm-title" aria-describedby="preset-confirm-description" onKeyDown={trapConfirmationFocus} className="w-full max-w-md rounded-panel border border-line bg-overlay p-6 shadow-overlay">
             <p className="eyebrow mb-2">Confirmar alteração</p>
             <h2 id="preset-confirm-title" className="text-xl font-medium">
-              {confirmation.type === 'clear' || activePreset === confirmation.key
+              {confirmation.type === 'premises'
+                ? 'Substituir as premissas atuais?'
+                : confirmation.type === 'clear' || activePreset === confirmation.key
                 ? 'Limpar a lousa atual?'
                 : 'Substituir a lousa atual?'}
             </h2>
             <p id="preset-confirm-description" className="mt-3 text-sm leading-6 text-text-secondary">
-              {confirmation.type === 'clear' || activePreset === confirmation.key
+              {confirmation.type === 'premises'
+                ? 'O texto sugerido pela IA substituirá o conteúdo atual. A estimativa continuará sem ser salva até sua confirmação final.'
+                : confirmation.type === 'clear' || activePreset === confirmation.key
                 ? 'O ponto de partida será desmarcado e todos os itens da lousa serão removidos.'
                 : 'Todos os itens atuais, inclusive funcionalidades personalizadas, serão substituídos pelo novo ponto de partida.'}
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <Button onClick={closeConfirmation}>Cancelar</Button>
               <Button variant="primary" autoFocus onClick={confirmBoardChange}>
-                {confirmation.type === 'clear' || activePreset === confirmation.key ? 'Limpar lousa' : 'Substituir lousa'}
+                {confirmation.type === 'premises'
+                  ? 'Substituir premissas'
+                  : confirmation.type === 'clear' || activePreset === confirmation.key
+                    ? 'Limpar lousa'
+                    : 'Substituir lousa'}
               </Button>
             </div>
           </div>
@@ -378,7 +474,7 @@ export function EstimatesPage() {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-medium text-text-secondary">
               Nome da estimativa
-              <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="Ex.: Portal B2B — Fase 1" className={`${inputClass} mt-2`} />
+              <input ref={titleInputRef} value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="Ex.: Portal B2B — Fase 1" className={`${inputClass} mt-2`} />
             </label>
             <label className="text-xs font-medium text-text-secondary">
               Cliente
@@ -388,20 +484,38 @@ export function EstimatesPage() {
           <label className="mt-4 block text-xs font-medium text-text-secondary">
             Fronteira e escopo funcional
             <textarea
+              ref={scopeInputRef}
               value={scopeBoundary}
               onChange={(event) => setScopeBoundary(event.target.value)}
               maxLength={2000}
               placeholder="Defina a aplicação contada, seus usuários funcionais, o que entra e o que fica fora desta estimativa."
               className={`${inputClass} mt-2 min-h-[132px] resize-y py-3 leading-6`}
             />
-            <span className="mt-1.5 block text-right font-mono text-[10px] text-text-tertiary">{scopeBoundary.trim().length}/2000 · mínimo 30</span>
+            <span className="mt-1.5 block text-right font-mono text-[10px] text-text-tertiary">{scopeBoundary.trim().length}/2000 · mínimo 30 para salvar · 120 para IA</span>
           </label>
         </Panel>
 
         <Panel className="p-5 sm:p-6">
-          <p className="eyebrow mb-2">Premissas</p>
-          <h2 className="text-lg font-medium">Como esta conta deve ser lida</h2>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="eyebrow mb-2">Premissas</p>
+              <h2 className="text-lg font-medium">Como esta conta deve ser lida</h2>
+            </div>
+            <Button
+              className="print-hidden"
+              icon={<HiOutlineSparkles size={16} />}
+              disabled={Boolean(assistantDisabledReason)}
+              title={assistantDisabledReason}
+              onClick={() => startAssistantAction({
+                intent: EstimateAssistantIntent.PREMISES_DRAFT,
+                visibleMessage: 'Ajude a redigir as premissas desta estimativa.',
+              })}
+            >
+              Ajudar com IA
+            </Button>
+          </div>
           <textarea
+            ref={calculationNotesRef}
             aria-label="Premissas específicas da estimativa"
             value={calculationNotes}
             onChange={(event) => setCalculationNotes(event.target.value)}
@@ -461,6 +575,12 @@ export function EstimatesPage() {
 
           <CustomFunctionForm
             weights={configuration.weights}
+            analysisDisabledReason={assistantDisabledReason}
+            onAnalyze={(draft) => startAssistantAction({
+              intent: EstimateAssistantIntent.CUSTOM_FUNCTION_REVIEW,
+              visibleMessage: `Analise a funcionalidade personalizada “${draft.name || 'sem nome'}”.`,
+              customFunction: draft,
+            })}
             onAdd={(item) => {
               setItems((current) => [...current, item]);
               setSaveError(null);
@@ -481,6 +601,11 @@ export function EstimatesPage() {
               setActivePreset(null);
             }}
             onClear={requestBoardClear}
+            onAnalyze={() => startAssistantAction({
+              intent: EstimateAssistantIntent.BOARD_REVIEW,
+              visibleMessage: 'Analise a lousa atual e identifique possíveis lacunas.',
+            })}
+            analysisDisabledReason={boardAnalysisDisabledReason}
           />
 
           {saveError ? (
@@ -553,6 +678,22 @@ export function EstimatesPage() {
           </div>
         )}
       </section>
+
+      <EstimateAssistantDrawer
+        open={assistant.isOpen}
+        enabled={assistant.enabled}
+        configurationLoading={assistant.configurationLoading}
+        messages={assistant.messages}
+        isSending={assistant.isSending}
+        error={assistant.error}
+        eligibilityReason={assistantEligibility.assistantDisabledReason}
+        onClose={closeAssistant}
+        onSend={assistant.sendChat}
+        onRetry={assistant.retry}
+        onCancel={assistant.cancel}
+        onApplyPremises={requestPremisesApply}
+        onFocusRequirement={focusAssistantRequirement}
+      />
     </div>
   );
 }

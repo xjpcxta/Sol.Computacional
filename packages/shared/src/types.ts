@@ -332,6 +332,84 @@ export interface Estimate extends EstimateSummary {
   items: EstimateItem[];
 }
 
+// ---- Estimate AI assistant DTOs ----
+
+export enum EstimateAssistantIntent {
+  CHAT = 'chat',
+  CUSTOM_FUNCTION_REVIEW = 'custom-function-review',
+  PREMISES_DRAFT = 'premises-draft',
+  BOARD_REVIEW = 'board-review',
+}
+
+export type EstimateAssistantMessageRole = 'user' | 'assistant';
+
+export interface EstimateAssistantChatMessage {
+  role: EstimateAssistantMessageRole;
+  content: string;
+}
+
+export interface EstimateAssistantBoardComponent {
+  name: string;
+  description: string;
+  functionType: FunctionType;
+  complexity: Complexity;
+  quantity: number;
+}
+
+export interface EstimateAssistantBoardItem {
+  name: string;
+  description: string;
+  calculationBasis: TemplateCalculationBasis;
+  quantity: number;
+  components: EstimateAssistantBoardComponent[];
+  serviceActivities: Array<{
+    name: string;
+    description: string;
+    estimatedHours: number;
+  }>;
+}
+
+export interface EstimateAssistantCatalogItem {
+  name: string;
+  description: string;
+  calculationBasis: TemplateCalculationBasis;
+}
+
+export interface EstimateAssistantContext {
+  projectTitle: string;
+  scopeBoundary: string;
+  calculationNotes: string;
+  boardItems: EstimateAssistantBoardItem[];
+  catalogItems: EstimateAssistantCatalogItem[];
+}
+
+export interface EstimateAssistantCustomFunctionDraft {
+  name: string;
+  description: string;
+  functionType: FunctionType;
+  complexity: Complexity;
+  quantity: number;
+}
+
+export interface EstimateAssistantRequest {
+  intent: EstimateAssistantIntent;
+  message?: string;
+  context: EstimateAssistantContext;
+  customFunction?: EstimateAssistantCustomFunctionDraft;
+  history: EstimateAssistantChatMessage[];
+}
+
+export interface EstimateAssistantResponse {
+  message: string;
+  requestId: string;
+  intent: EstimateAssistantIntent;
+}
+
+export interface EstimateAssistantConfiguration {
+  enabled: boolean;
+  maxHistoryMessages: number;
+}
+
 // ---- Dashboard DTOs ----
 
 export interface DashboardMetrics {

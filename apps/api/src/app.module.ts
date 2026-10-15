@@ -10,6 +10,7 @@ import { CostProfileModule } from './cost-profile/cost-profile.module';
 import { rootEnvPath, validateRuntimeEnvironment } from './config/environment';
 import { EstimatesModule } from './estimates/estimates.module';
 import { HealthController } from './health/health.controller';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { HealthController } from './health/health.controller';
     TemplatesModule,
     CostProfileModule,
     EstimatesModule,
+    AiAssistantModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -4,9 +4,10 @@ import {
   EstimateItemKind,
   FunctionType,
   TemplateCalculationBasis,
+  type EstimateAssistantCustomFunctionDraft,
   type FunctionPointWeightMatrix,
 } from '@pricefunc/shared';
-import { HiOutlinePlus, HiOutlinePuzzle } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlinePuzzle, HiOutlineSparkles } from 'react-icons/hi';
 import { complexityLabels, functionTypeLabels } from '../../lib/functionPointLabels';
 import type { BoardItem } from '../../lib/estimateMath';
 import { Button, Panel } from '../ui';
@@ -14,11 +15,18 @@ import { Button, Panel } from '../ui';
 interface CustomFunctionFormProps {
   weights: FunctionPointWeightMatrix;
   onAdd: (item: BoardItem) => void;
+  onAnalyze: (draft: EstimateAssistantCustomFunctionDraft) => void;
+  analysisDisabledReason?: string;
 }
 
 const inputClass = 'min-h-11 w-full rounded-input border border-line bg-input px-3.5 text-sm text-text-primary outline-none hover:border-line-strong focus:border-accent focus:shadow-focus placeholder:text-text-tertiary';
 
-export function CustomFunctionForm({ weights, onAdd }: CustomFunctionFormProps) {
+export function CustomFunctionForm({
+  weights,
+  onAdd,
+  onAnalyze,
+  analysisDisabledReason,
+}: CustomFunctionFormProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [functionType, setFunctionType] = useState(FunctionType.EE);
@@ -27,6 +35,13 @@ export function CustomFunctionForm({ weights, onAdd }: CustomFunctionFormProps) 
   const [error, setError] = useState<string | null>(null);
 
   const unitPf = weights[functionType][complexity];
+  const draftIsEmpty = !name.trim() && !description.trim();
+  const quantityIsValid = Number.isInteger(quantity) && quantity >= 1 && quantity <= 99;
+  const localAnalysisDisabledReason = draftIsEmpty
+    ? 'Preencha ao menos o nome ou a descrição da funcionalidade.'
+    : !quantityIsValid
+      ? 'Informe uma quantidade inteira entre 1 e 99.'
+      : undefined;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -159,9 +174,30 @@ export function CustomFunctionForm({ weights, onAdd }: CustomFunctionFormProps) 
 
         {error ? <p role="alert" className="text-sm leading-5 text-error">{error}</p> : null}
 
-        <Button type="submit" icon={<HiOutlinePlus size={18} />} fullWidth>
-          Colocar na lousa
-        </Button>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Button type="submit" icon={<HiOutlinePlus size={18} />} fullWidth>
+            Colocar na lousa
+          </Button>
+          <Button
+            type="button"
+            icon={<HiOutlineSparkles size={17} />}
+            fullWidth
+            disabled={Boolean(analysisDisabledReason) || Boolean(localAnalysisDisabledReason)}
+            title={analysisDisabledReason ?? localAnalysisDisabledReason}
+            onClick={() => onAnalyze({
+              name: name.trim(),
+              description: description.trim(),
+              functionType,
+              complexity,
+              quantity,
+            })}
+          >
+            Analisar
+          </Button>
+        </div>
+        {analysisDisabledReason ? (
+          <p className="text-xs leading-5 text-text-tertiary">{analysisDisabledReason}</p>
+        ) : null}
       </form>
     </Panel>
   );

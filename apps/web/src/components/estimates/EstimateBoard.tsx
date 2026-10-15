@@ -8,6 +8,7 @@ import {
   HiOutlineClipboardList,
   HiOutlineMinus,
   HiOutlinePlus,
+  HiOutlineSparkles,
   HiOutlineTrash,
 } from 'react-icons/hi';
 import { complexityLabels } from '../../lib/functionPointLabels';
@@ -26,6 +27,8 @@ interface EstimateBoardProps {
   onQuantityChange: (key: string, quantity: number) => void;
   onRemove: (key: string) => void;
   onClear: () => void;
+  onAnalyze: () => void;
+  analysisDisabledReason?: string;
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -43,6 +46,8 @@ export function EstimateBoard({
   onQuantityChange,
   onRemove,
   onClear,
+  onAnalyze,
+  analysisDisabledReason,
 }: EstimateBoardProps) {
   const totals = calculateBoardTotals(items, weights, costProfile);
 
@@ -57,6 +62,17 @@ export function EstimateBoard({
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onAnalyze}
+              disabled={Boolean(analysisDisabledReason)}
+              title={analysisDisabledReason}
+              className="inline-flex min-h-10 items-center gap-2 rounded-button border border-accent/25 bg-accent-soft px-3 text-xs text-accent hover:border-accent/45 hover:bg-accent/15 disabled:cursor-not-allowed disabled:border-line-subtle disabled:bg-transparent disabled:text-text-tertiary disabled:opacity-50"
+            >
+              <HiOutlineSparkles aria-hidden="true" size={15} />
+              <span className="hidden sm:inline">Analisar lousa</span>
+              <span className="sm:hidden">Analisar</span>
+            </button>
             {items.length > 0 ? (
               <button
                 type="button"
