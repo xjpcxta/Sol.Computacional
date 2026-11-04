@@ -11,6 +11,8 @@ import {
 } from '@pricefunc/shared';
 import { api } from '../lib/api';
 
+export const MAX_HISTORY_MESSAGE_LENGTH = 2_000;
+
 export interface EstimateAssistantUiMessage extends EstimateAssistantChatMessage {
   id: string;
   intent?: EstimateAssistantIntent;
@@ -21,6 +23,44 @@ export interface EstimateAssistantAction {
   visibleMessage: string;
   message?: string;
   customFunction?: EstimateAssistantCustomFunctionDraft;
+}
+
+interface EstimateAssistantAttempt {
+  action: EstimateAssistantAction;
+  baseMessages: readonly EstimateAssistantUiMessage[];
+}
+
+export function buildRequestHistory(
+  messages: readonly EstimateAssistantChatMessage[],
+  intent: EstimateAssistantIntent,
+  historyLimit: number,
+): EstimateAssistantChatMessage[] {
+  if (intent !== EstimateAssistantIntent.CHAT || historyLimit <= 0) {
+    return [];
+  }
+
+  return messages
+    .map(({ role, content }) => ({
+      role,
+      content: content.trim().slice(0, MAX_HISTORY_MESSAGE_LENGTH),
+    }))
+    .filter((message) => message.content.length > 0)
+    .slice(-historyLimit);
+}
+
+export function buildEstimateAssistantPayload(
+  action: EstimateAssistantAction,
+  context: EstimateAssistantContext,
+  baseMessages: readonly EstimateAssistantChatMessage[],
+  historyLimit: number,
+): EstimateAssistantRequest {
+  return {
+    intent: action.intent,
+    context,
+    history: buildRequestHistory(baseMessages, action.intent, historyLimit),
+    ...(action.message ? { message: action.message } : {}),
+    ...(action.customFunction ? { customFunction: action.customFunction } : {}),
+  };
 }
 
 function readAssistantError(error: unknown): string {
@@ -42,8 +82,8 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
   const [configurationLoading, setConfigurationLoading] = useState(true);
   const controllerRef = useRef<AbortController | null>(null);
   const sendingRef = useRef(false);
-  const messagesRef = useRef(messages);
-  const lastActionRef = useRef<EstimateAssistantAction | null>(null);
+  const messagesRef = useRef<EstimateAssistantUiMessage[]>(messages);
+  const lastAttemptRef = useRef<EstimateAssistantAttempt | null>(null);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -71,8 +111,19 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
   const close = useCallback(() => setIsOpen(false), []);
   const cancel = useCallback(() => controllerRef.current?.abort(), []);
 
+  const clear = useCallback(() => {
+    controllerRef.current?.abort();
+    controllerRef.current = null;
+    sendingRef.current = false;
+    lastAttemptRef.current = null;
+    messagesRef.current = [];
+    setMessages([]);
+    setError(null);
+    setIsSending(false);
+  }, []);
+
   const performAction = useCallback(async (
-    action: EstimateAssistantAction,
+    attempt: EstimateAssistantAttempt,
     appendVisibleMessage: boolean,
   ) => {
     if (sendingRef.current || !configuration?.enabled) return;
@@ -81,28 +132,28 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
     setIsOpen(true);
     setIsSending(true);
     setError(null);
-    lastActionRef.current = action;
-    const previousMessages = messagesRef.current;
-    const userMessage: EstimateAssistantUiMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: action.visibleMessage,
-      intent: action.intent,
-    };
+    lastAttemptRef.current = attempt;
+
     if (appendVisibleMessage) {
-      setMessages((current) => [...current, userMessage]);
+      const userMessage: EstimateAssistantUiMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: attempt.action.visibleMessage,
+        intent: attempt.action.intent,
+      };
+      const nextMessages = [...attempt.baseMessages, userMessage];
+      messagesRef.current = nextMessages;
+      setMessages(nextMessages);
     }
 
     const controller = new AbortController();
     controllerRef.current = controller;
-    const historyLimit = configuration.maxHistoryMessages;
-    const payload: EstimateAssistantRequest = {
-      intent: action.intent,
+    const payload = buildEstimateAssistantPayload(
+      attempt.action,
       context,
-      history: previousMessages.slice(-historyLimit).map(({ role, content }) => ({ role, content })),
-      ...(action.message ? { message: action.message } : {}),
-      ...(action.customFunction ? { customFunction: action.customFunction } : {}),
-    };
+      attempt.baseMessages,
+      configuration.maxHistoryMessages,
+    );
 
     try {
       const response = await api.post<EstimateAssistantResponse>(
@@ -110,12 +161,17 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
         payload,
         { signal: controller.signal },
       );
-      setMessages((current) => [...current, {
+      const assistantMessage: EstimateAssistantUiMessage = {
         id: response.data.requestId,
         role: 'assistant',
         content: response.data.message,
         intent: response.data.intent,
-      }]);
+      };
+      setMessages((current) => {
+        const updated = [...current, assistantMessage];
+        messagesRef.current = updated;
+        return updated;
+      });
     } catch (requestError) {
       setError(readAssistantError(requestError));
     } finally {
@@ -126,12 +182,12 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
   }, [configuration, context]);
 
   const sendAction = useCallback((action: EstimateAssistantAction) => (
-    performAction(action, true)
+    performAction({ action, baseMessages: messagesRef.current }, true)
   ), [performAction]);
 
   const retry = useCallback(() => {
-    if (!lastActionRef.current) return Promise.resolve();
-    return performAction(lastActionRef.current, false);
+    if (!lastAttemptRef.current) return Promise.resolve();
+    return performAction(lastAttemptRef.current, false);
   }, [performAction]);
 
   const sendChat = useCallback((message: string) => sendAction({
@@ -150,6 +206,7 @@ export function useEstimateAssistant(context: EstimateAssistantContext) {
     open,
     close,
     cancel,
+    clear,
     retry,
     sendAction,
     sendChat,

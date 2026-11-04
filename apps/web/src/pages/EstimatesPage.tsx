@@ -688,6 +688,7 @@ export function EstimatesPage() {
         error={assistant.error}
         eligibilityReason={assistantEligibility.assistantDisabledReason}
         onClose={closeAssistant}
+        onClear={assistant.clear}
         onSend={assistant.sendChat}
         onRetry={assistant.retry}
         onCancel={assistant.cancel}

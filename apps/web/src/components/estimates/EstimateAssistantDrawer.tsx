@@ -24,6 +24,7 @@ interface EstimateAssistantDrawerProps {
   error: string | null;
   eligibilityReason?: string;
   onClose: () => void;
+  onClear: () => void;
   onSend: (message: string) => Promise<void>;
   onRetry: () => Promise<void>;
   onCancel: () => void;
@@ -40,6 +41,7 @@ export function EstimateAssistantDrawer({
   error,
   eligibilityReason,
   onClose,
+  onClear,
   onSend,
   onRetry,
   onCancel,
@@ -124,14 +126,28 @@ export function EstimateAssistantDrawer({
                 <h2 id="assistant-title" className="text-lg font-medium">Assistente da estimativa</h2>
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Fechar assistente"
-              onClick={onClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button border border-line-subtle text-text-secondary hover:border-line-strong hover:text-text-primary"
-            >
-              <HiOutlineX aria-hidden="true" size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {(messages.length > 0 || error) && !isSending ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClear();
+                    inputRef.current?.focus();
+                  }}
+                  className="flex h-10 items-center rounded-button border border-line-subtle px-3 text-xs font-medium text-text-secondary transition-colors hover:border-line-strong hover:text-text-primary"
+                >
+                  Limpar conversa
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label="Fechar assistente"
+                onClick={onClose}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button border border-line-subtle text-text-secondary hover:border-line-strong hover:text-text-primary"
+              >
+                <HiOutlineX aria-hidden="true" size={18} />
+              </button>
+            </div>
           </div>
           <p className="mt-4 text-xs leading-5 text-text-tertiary">
             Sugestão assistida por IA. Valide requisitos e classificação antes de salvar.

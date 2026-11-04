@@ -31,7 +31,7 @@ class EstimateAssistantChatMessageDto {
 
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
-  @Length(1, 2_000)
+  @Length(1, 6_000)
   content!: string;
 }
 

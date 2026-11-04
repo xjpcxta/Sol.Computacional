@@ -34,4 +34,43 @@ describe('EstimateAssistantMessageDto', () => {
 
     expect(await validate(dto)).toEqual([]);
   });
+
+  it('accepts assistant history messages up to 6000 characters and rejects larger ones', async () => {
+    const validDto = plainToInstance(EstimateAssistantMessageDto, {
+      intent: EstimateAssistantIntent.CHAT,
+      message: 'Pode detalhar a segunda lacuna?',
+      context: {
+        projectTitle: 'Portal B2B',
+        scopeBoundary: 'x'.repeat(120),
+        calculationNotes: '',
+        boardItems: [],
+        catalogItems: [],
+      },
+      history: [
+        { role: 'user', content: 'Analise a lousa atual.' },
+        { role: 'assistant', content: 'a'.repeat(6_000) },
+      ],
+    });
+
+    expect(await validate(validDto)).toEqual([]);
+
+    const oversizedDto = plainToInstance(EstimateAssistantMessageDto, {
+      intent: EstimateAssistantIntent.CHAT,
+      message: 'Pode detalhar a segunda lacuna?',
+      context: {
+        projectTitle: 'Portal B2B',
+        scopeBoundary: 'x'.repeat(120),
+        calculationNotes: '',
+        boardItems: [],
+        catalogItems: [],
+      },
+      history: [
+        { role: 'user', content: 'Analise a lousa atual.' },
+        { role: 'assistant', content: 'a'.repeat(6_001) },
+      ],
+    });
+
+    const errors = await validate(oversizedDto);
+    expect(errors.map((error) => error.property)).toContain('history');
+  });
 });
