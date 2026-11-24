@@ -19,6 +19,7 @@ import {
   getBoardItemServiceHours,
   type BoardItem,
 } from '../../lib/estimateMath';
+import { Redacted } from '../ui';
 
 interface EstimateBoardProps {
   items: readonly BoardItem[];
@@ -217,9 +218,10 @@ export function EstimateBoard({
             <dt className="text-text-secondary">Margem de risco ({numberFormatter.format(costProfile.riskMargin)}%)</dt>
             <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.riskAmount)}</dd>
           </div>
+          {/* O lucro fica sempre oculto na lousa; o total continua incluindo esse valor. */}
           <div className="flex justify-between gap-4">
-            <dt className="text-text-secondary">Markup de lucro ({numberFormatter.format(costProfile.profitMarkup)}%)</dt>
-            <dd className="data-value font-mono text-text-primary">{currencyFormatter.format(totals.profitAmount)}</dd>
+            <dt><Redacted width="9.5rem" label="Informação oculta" /></dt>
+            <dd><Redacted width="5.5rem" /></dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-text-secondary">Impostos ({numberFormatter.format(costProfile.taxRate)}%)</dt>

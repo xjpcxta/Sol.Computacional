@@ -10,11 +10,13 @@ import {
 import {
   HiOutlineArrowLeft,
   HiOutlineExclamationCircle,
+  HiOutlineEye,
+  HiOutlineEyeOff,
   HiOutlinePaperAirplane,
   HiOutlinePrinter,
   HiOutlineRefresh,
 } from 'react-icons/hi';
-import { Button, Panel, Skeleton } from '../components/ui';
+import { Button, Panel, Redacted, Skeleton } from '../components/ui';
 import { complexityLabels, functionTypeLabels } from '../lib/functionPointLabels';
 import { api } from '../lib/api';
 
@@ -46,6 +48,8 @@ export function EstimateReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  // O lucro começa oculto na tela e na impressão; só aparece se o usuário liberar.
+  const [profitVisible, setProfitVisible] = useState(false);
 
   const loadEstimate = useCallback(async () => {
     if (!id) {
@@ -262,8 +266,12 @@ export function EstimateReportPage() {
               <p>{numberFormatter.format(estimate.functionPointHours)} h funcionais + {numberFormatter.format(estimate.serviceHours)} h de serviços = {numberFormatter.format(estimate.estimatedHours)} horas totais</p>
               <p>{numberFormatter.format(estimate.estimatedHours)} h × {currencyFormatter.format(estimate.hourlyRate)}/h = {currencyFormatter.format(estimate.baseCost)}</p>
               <p>{currencyFormatter.format(estimate.baseCost)} × {numberFormatter.format(estimate.riskMargin)}% = {currencyFormatter.format(estimate.riskAmount)} de risco</p>
-              <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)}) × {numberFormatter.format(estimate.profitMarkup)}% = {currencyFormatter.format(estimate.profitAmount)} de lucro</p>
-              <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)} + {currencyFormatter.format(estimate.profitAmount)}) × {numberFormatter.format(estimate.taxRate)}% = {currencyFormatter.format(estimate.taxAmount)} de impostos</p>
+              {profitVisible ? (
+                <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)}) × {numberFormatter.format(estimate.profitMarkup)}% = {currencyFormatter.format(estimate.profitAmount)} de lucro</p>
+              ) : (
+                <p><Redacted width="24rem" label="Linha oculta" /></p>
+              )}
+              <p>({currencyFormatter.format(estimate.baseCost)} + {currencyFormatter.format(estimate.riskAmount)} + {profitVisible ? currencyFormatter.format(estimate.profitAmount) : <Redacted width="5.5rem" label="valor oculto" />}) × {numberFormatter.format(estimate.taxRate)}% = {currencyFormatter.format(estimate.taxAmount)} de impostos</p>
             </div>
             <p className="mt-5 text-xs text-text-tertiary">
               Perfil {estimate.pricingSource === CostProfileSource.GLOBAL ? 'global' : 'individual'} fotografado no salvamento.
@@ -273,7 +281,28 @@ export function EstimateReportPage() {
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-5"><dt className="text-text-secondary">Custo-base</dt><dd className="font-mono">{currencyFormatter.format(estimate.baseCost)}</dd></div>
               <div className="flex justify-between gap-5"><dt className="text-text-secondary">Margem de risco ({numberFormatter.format(estimate.riskMargin)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.riskAmount)}</dd></div>
-              <div className="flex justify-between gap-5"><dt className="text-text-secondary">Markup de lucro ({numberFormatter.format(estimate.profitMarkup)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.profitAmount)}</dd></div>
+              <div className="flex items-center justify-between gap-5">
+                <dt className="flex min-w-0 items-center gap-2 text-text-secondary">
+                  {profitVisible
+                    ? `Markup de lucro (${numberFormatter.format(estimate.profitMarkup)}%)`
+                    : <Redacted width="9.5rem" label="Informação oculta" />}
+                  <button
+                    type="button"
+                    onClick={() => setProfitVisible((visible) => !visible)}
+                    aria-pressed={profitVisible}
+                    aria-label={profitVisible ? 'Ocultar markup de lucro' : 'Mostrar markup de lucro'}
+                    title={profitVisible ? 'Ocultar markup de lucro' : 'Mostrar markup de lucro'}
+                    className="print-hidden inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-button text-text-tertiary transition-colors hover:bg-white/[0.05] hover:text-text-primary focus-visible:shadow-focus focus-visible:outline-none"
+                  >
+                    {profitVisible
+                      ? <HiOutlineEye aria-hidden="true" size={16} />
+                      : <HiOutlineEyeOff aria-hidden="true" size={16} />}
+                  </button>
+                </dt>
+                <dd className="font-mono">
+                  {profitVisible ? currencyFormatter.format(estimate.profitAmount) : <Redacted width="5.5rem" />}
+                </dd>
+              </div>
               <div className="flex justify-between gap-5"><dt className="text-text-secondary">Impostos ({numberFormatter.format(estimate.taxRate)}%)</dt><dd className="font-mono">{currencyFormatter.format(estimate.taxAmount)}</dd></div>
             </dl>
             <div className="mt-6 border-t border-accent/25 pt-5">

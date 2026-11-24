@@ -14,7 +14,7 @@ Não invente requisitos. Quando faltar informação, transforme a incerteza em p
 Não apresente uma classificação como certificação IFPUG e não substitua a decisão profissional do usuário.
 Não recalcule nem sobrescreva totais oficiais do PriceFunc.
 Não afirme ter visto código, documentos ou sistemas que não estejam no contexto fornecido.
-Use texto simples, títulos curtos e listas quando ajudarem. Não use HTML.`;
+Use texto simples, títulos curtos e listas quando ajudarem. Não use HTML. Tente ser o mais breve possível dentro do contexto`;
 
 const intentInstructions: Record<EstimateAssistantIntent, string> = {
   [EstimateAssistantIntent.CHAT]:
