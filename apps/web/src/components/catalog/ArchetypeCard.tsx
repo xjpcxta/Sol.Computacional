@@ -1,14 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { TemplateCalculationBasis, type Template } from '@pricefunc/shared';
-import { HiOutlineChevronDown, HiOutlineCube } from 'react-icons/hi';
+import { HiOutlineChevronDown, HiOutlineCube, HiOutlinePencil } from 'react-icons/hi';
 import { complexityLabels, functionTypeLabels } from '../../lib/functionPointLabels';
 import { CategoryBadge, Panel } from '../ui';
 
 interface ArchetypeCardProps {
   template: Template;
+  onEdit?: (template: Template) => void;
 }
 
-export function ArchetypeCard({ template }: ArchetypeCardProps) {
+export function ArchetypeCard({ template, onEdit }: ArchetypeCardProps) {
   const isService = template.calculationBasis === TemplateCalculationBasis.SERVICE_HOURS;
   const [memoryOpen, setMemoryOpen] = useState(false);
   const memoryRef = useRef<HTMLDivElement>(null);
@@ -43,9 +44,23 @@ export function ArchetypeCard({ template }: ArchetypeCardProps) {
     <Panel className="flex min-h-[300px] flex-col">
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="flex items-start justify-between gap-5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-button border border-line-subtle bg-white/[0.025] text-text-secondary">
-            <HiOutlineCube aria-hidden="true" size={19} />
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="flex h-10 w-10 items-center justify-center rounded-button border border-line-subtle bg-white/[0.025] text-text-secondary">
+              <HiOutlineCube aria-hidden="true" size={19} />
+            </span>
+            {onEdit ? (
+              <button
+                type="button"
+                onClick={() => onEdit(template)}
+                aria-label={`Editar ${template.name}`}
+                title="Editar arquétipo"
+                className="flex h-10 items-center gap-1.5 rounded-button border border-line-subtle px-3 text-xs font-medium text-text-secondary transition-colors hover:border-line-strong hover:text-text-primary"
+              >
+                <HiOutlinePencil aria-hidden="true" size={15} />
+                Editar
+              </button>
+            ) : null}
+          </div>
           <div className="text-right">
             <p className="data-value font-mono text-3xl font-light text-accent">{isService ? template.serviceHours : template.totalPf}</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-text-tertiary">{isService ? 'horas estimadas' : 'PF não ajustados'}</p>

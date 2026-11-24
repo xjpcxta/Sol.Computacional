@@ -47,6 +47,8 @@ O PriceFunc parte de três princípios:
 - Cada arquétipo detalha seus componentes por tipo de função (ALI, AIE, EE, SE,
   CE), complexidade e quantidade, com a memória de cálculo visível no card.
 - Cadastro de novos arquétipos por Pontos de Função ou por horas de serviço.
+- Edição de arquétipos existentes, com inclusão e remoção de componentes ou
+  atividades. Estimativas já salvas mantêm a versão anterior.
 
 ### Estimativas
 
@@ -217,5 +219,5 @@ está em [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 - A contagem segue a APF do IFPUG, mas não é uma contagem certificada.
 - A exportação em PDF usa o diálogo de impressão do navegador.
-- Arquétipos ainda não podem ser editados ou excluídos pela interface.
+- Arquétipos ainda não podem ser excluídos pela interface.
 - Estimativas salvas podem mudar de status, mas não ser editadas.

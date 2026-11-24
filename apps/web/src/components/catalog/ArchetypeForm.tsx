@@ -10,13 +10,15 @@ import {
   type CreateTemplateRequest,
   type Template,
 } from '@pricefunc/shared';
-import { HiOutlinePlus, HiOutlineTrash, HiOutlineX } from 'react-icons/hi';
+import { HiOutlineCheck, HiOutlinePlus, HiOutlineTrash, HiOutlineX } from 'react-icons/hi';
 import { api } from '../../lib/api';
 import { categoryLabels, complexityLabels, functionTypeLabels } from '../../lib/functionPointLabels';
 import { Button, Panel } from '../ui';
 
 interface ArchetypeFormProps {
-  onCreated: (template: Template) => void;
+  /** Arquétipo em edição. Quando ausente, o formulário cadastra um novo. */
+  template?: Template;
+  onSaved: (template: Template) => void;
   onCancel: () => void;
 }
 
@@ -60,13 +62,39 @@ function readApiError(error: unknown): string {
   return 'Não foi possível salvar o arquétipo. Revise os dados e tente novamente.';
 }
 
-export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState(TemplateCategory.BACKEND);
-  const [description, setDescription] = useState('');
-  const [calculationBasis, setCalculationBasis] = useState(TemplateCalculationBasis.FUNCTION_POINTS);
-  const [components, setComponents] = useState<DraftComponent[]>([createDraftComponent()]);
-  const [serviceActivities, setServiceActivities] = useState<DraftServiceActivity[]>([createDraftServiceActivity()]);
+function toDraftComponents(template?: Template): DraftComponent[] {
+  if (!template?.components.length) return [createDraftComponent()];
+  return template.components.map((component) => ({
+    key: component.id,
+    name: component.name,
+    description: component.description,
+    functionType: component.functionType,
+    complexity: component.complexity,
+    quantity: component.quantity,
+  }));
+}
+
+function toDraftServiceActivities(template?: Template): DraftServiceActivity[] {
+  if (!template?.serviceActivities.length) return [createDraftServiceActivity()];
+  return template.serviceActivities.map((activity) => ({
+    key: activity.id,
+    name: activity.name,
+    description: activity.description,
+    estimatedHours: activity.estimatedHours,
+  }));
+}
+
+export function ArchetypeForm({ template, onSaved, onCancel }: ArchetypeFormProps) {
+  const isEditing = Boolean(template);
+  const [name, setName] = useState(template?.name ?? '');
+  const [category, setCategory] = useState(template?.category ?? TemplateCategory.BACKEND);
+  const [description, setDescription] = useState(template?.description ?? '');
+  // Na edição, a base de cálculo é fixa: a API recusa a troca entre PF e horas.
+  const [calculationBasis, setCalculationBasis] = useState(
+    template?.calculationBasis ?? TemplateCalculationBasis.FUNCTION_POINTS,
+  );
+  const [components, setComponents] = useState<DraftComponent[]>(() => toDraftComponents(template));
+  const [serviceActivities, setServiceActivities] = useState<DraftServiceActivity[]>(() => toDraftServiceActivities(template));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -135,8 +163,10 @@ export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
 
     setSubmitting(true);
     try {
-      const response = await api.post<Template>('/templates', payload);
-      onCreated(response.data);
+      const response = template
+        ? await api.put<Template>(`/templates/${template.id}`, payload)
+        : await api.post<Template>('/templates', payload);
+      onSaved(response.data);
     } catch (requestError) {
       setError(readApiError(requestError));
     } finally {
@@ -148,16 +178,18 @@ export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
     <Panel tone="raised" crosshair className="overflow-hidden">
       <div className="flex items-start justify-between gap-6 border-b border-line-subtle px-5 py-5 sm:px-7">
         <div>
-          <p className="eyebrow mb-2">Novo registro</p>
-          <h2 className="text-xl font-medium tracking-[-0.025em]">Cadastrar arquétipo</h2>
+          <p className="eyebrow mb-2">{isEditing ? 'Edição' : 'Novo registro'}</p>
+          <h2 className="text-xl font-medium tracking-[-0.025em]">{isEditing ? `Editar “${template?.name}”` : 'Cadastrar arquétipo'}</h2>
           <p className="mt-2 max-w-[68ch] text-sm leading-6 text-text-secondary">
-            Escolha a base de cálculo e detalhe cada componente funcional ou atividade consultiva que compõe o bloco.
+            {isEditing
+              ? 'Ajuste os dados e adicione ou remova itens da memória de cálculo. Estimativas já salvas não são alteradas.'
+              : 'Escolha a base de cálculo e detalhe cada componente funcional ou atividade consultiva que compõe o bloco.'}
           </p>
         </div>
         <button
           type="button"
           onClick={onCancel}
-          aria-label="Fechar cadastro"
+          aria-label={isEditing ? 'Fechar edição' : 'Fechar cadastro'}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-button border border-line-subtle text-text-secondary hover:border-line-strong hover:text-text-primary"
         >
           <HiOutlineX aria-hidden="true" size={20} />
@@ -213,12 +245,13 @@ export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
               [TemplateCalculationBasis.FUNCTION_POINTS, 'Funcionalidade de software', 'Calculada por Pontos de Função.'],
               [TemplateCalculationBasis.SERVICE_HOURS, 'Serviço consultivo', 'Calculado por atividades e horas.'],
             ].map(([value, label, helper]) => (
-              <label key={value} className={`cursor-pointer rounded-panel border p-4 ${calculationBasis === value ? 'border-accent/45 bg-accent-soft' : 'border-line-subtle bg-black/10'}`}>
+              <label key={value} className={`rounded-panel border p-4 ${calculationBasis === value ? 'border-accent/45 bg-accent-soft' : 'border-line-subtle bg-black/10'} ${isEditing ? (calculationBasis === value ? 'cursor-default' : 'cursor-not-allowed opacity-40') : 'cursor-pointer'}`}>
                 <input
                   type="radio"
                   name="calculationBasis"
                   value={value}
                   checked={calculationBasis === value}
+                  disabled={isEditing}
                   onChange={() => setCalculationBasis(value as TemplateCalculationBasis)}
                   className="sr-only"
                 />
@@ -227,6 +260,9 @@ export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
               </label>
             ))}
           </div>
+          {isEditing ? (
+            <p className="mt-2 text-xs text-text-tertiary">A base de cálculo não pode ser alterada em um arquétipo existente.</p>
+          ) : null}
         </fieldset>
 
         <div className="mt-8 flex items-end justify-between gap-5 border-t border-line-subtle pt-7">
@@ -371,8 +407,13 @@ export function ArchetypeForm({ onCreated, onCancel }: ArchetypeFormProps) {
 
         <div className="mt-7 flex flex-col-reverse gap-3 border-t border-line-subtle pt-6 sm:flex-row sm:justify-end">
           <Button type="button" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit" variant="primary" isLoading={submitting} icon={<HiOutlinePlus size={18} />}>
-            {submitting ? 'Salvando' : 'Criar arquétipo'}
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={submitting}
+            icon={isEditing ? <HiOutlineCheck size={18} /> : <HiOutlinePlus size={18} />}
+          >
+            {submitting ? 'Salvando' : isEditing ? 'Salvar alterações' : 'Criar arquétipo'}
           </Button>
         </div>
       </form>

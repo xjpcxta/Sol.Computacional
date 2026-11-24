@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Template } from '@pricefunc/shared';
 import {
   HiOutlineCheckCircle,
@@ -19,7 +19,9 @@ export function CatalogPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -47,11 +49,34 @@ export function CatalogPage() {
     ));
   }, [query, templates]);
 
-  const handleCreated = (template: Template) => {
-    setTemplates((current) => [template, ...current]);
+  // O formulário de edição abre no mesmo lugar do cadastro, no topo da página.
+  useEffect(() => {
+    if (editingTemplate) {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [editingTemplate]);
+
+  const closeForm = () => {
     setFormOpen(false);
-    setSuccess(`“${template.name}” entrou no catálogo e já conta no total do dashboard.`);
+    setEditingTemplate(null);
+  };
+
+  const handleSaved = (template: Template) => {
+    if (editingTemplate) {
+      setTemplates((current) => current.map((item) => (item.id === template.id ? template : item)));
+      setSuccess(`“${template.name}” foi atualizado. Estimativas já salvas mantêm a versão anterior.`);
+    } else {
+      setTemplates((current) => [template, ...current]);
+      setSuccess(`“${template.name}” entrou no catálogo e já conta no total do dashboard.`);
+    }
+    closeForm();
     window.setTimeout(() => setSuccess(null), 6000);
+  };
+
+  const handleEdit = (template: Template) => {
+    setFormOpen(true);
+    setEditingTemplate(template);
+    setSuccess(null);
   };
 
   return (
@@ -87,7 +112,14 @@ export function CatalogPage() {
       ) : null}
 
       {formOpen ? (
-        <ArchetypeForm onCreated={handleCreated} onCancel={() => setFormOpen(false)} />
+        <div ref={formRef} className="scroll-mt-6">
+          <ArchetypeForm
+            key={editingTemplate?.id ?? 'new'}
+            template={editingTemplate ?? undefined}
+            onSaved={handleSaved}
+            onCancel={closeForm}
+          />
+        </div>
       ) : null}
 
       <section aria-labelledby="catalog-list-heading">
@@ -148,7 +180,7 @@ export function CatalogPage() {
         ) : (
           <div className="grid items-start gap-5 lg:grid-cols-2 2xl:grid-cols-3">
             {filteredTemplates.map((template) => (
-              <ArchetypeCard key={template.id} template={template} />
+              <ArchetypeCard key={template.id} template={template} onEdit={handleEdit} />
             ))}
           </div>
         )}

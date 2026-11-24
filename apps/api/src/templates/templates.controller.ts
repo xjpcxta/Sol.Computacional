@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { TemplatesService } from './templates.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateTemplateDto } from './dto/create-template.dto';
@@ -21,5 +21,10 @@ export class TemplatesController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.templatesService.findOne(id);
+  }
+
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() updateTemplateDto: CreateTemplateDto) {
+    return this.templatesService.update(id, updateTemplateDto);
   }
 }
