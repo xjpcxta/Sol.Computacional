@@ -2,11 +2,12 @@
 
 ## Identificação
 
-| Campo | Valor |
-| --- | --- |
-| Aluno | João Pedro da Costa Porto Gonçalves |
-| Matrícula | UC24201429 |
-| Turma | GPE17M80586 |
+
+| Campo      | Valor                                 |
+| ------------ | --------------------------------------- |
+| Aluno      | João Pedro da Costa Porto Gonçalves |
+| Matrícula | UC24201429                            |
+| Turma      | GPE17M80586                           |
 
 ## Vídeo de apresentação
 
