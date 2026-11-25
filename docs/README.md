@@ -10,7 +10,7 @@
 
 ## Vídeo de apresentação
 
-- YouTube: _a definir_
+- YouTube: [https://youtu.be/_Z_nkw_LNA0?is=pDsh4b8HgWLnLdl2]
 
 ## Documentos relacionados
 
